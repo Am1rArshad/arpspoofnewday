@@ -105,6 +105,18 @@ class MLEngine:
         if self.model is not None:
             self.model.save_model(str(MODEL_PATH))
 
+    def clear_training_data(self):
+        with self.lock:
+            if self.is_retraining:
+                return False
+            self.model = None
+            self.last_trained_at = None
+            self.training_samples = 0
+            MODEL_PATH.unlink(missing_ok=True)
+            BOOTSTRAP_BUFFER_PATH.unlink(missing_ok=True)
+        database.clear_training_data()
+        return True
+
     # ---------- bootstrap ----------
     def append_bootstrap_sample(self, feature_dict: dict, rule_matched: bool):
         """Cold-start: log rule-engine verdicts as weak labels until we have

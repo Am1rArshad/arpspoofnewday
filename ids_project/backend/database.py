@@ -192,6 +192,11 @@ def get_feedback_dataset():
     return [(json.loads(r["features_json"]), r["label"]) for r in rows]
 
 
+def clear_training_data():
+    with db_cursor() as cur:
+        cur.execute("DELETE FROM feedback_dataset")
+
+
 def clear_all_logs():
     with db_cursor() as cur:
         cur.execute("DELETE FROM alerts")

@@ -331,6 +331,15 @@ async def model_status(current_user=Depends(auth.get_current_user)):
     return sniffer.ml_engine.status()
 
 
+@app.delete("/api/model/training-data")
+async def delete_model_training_data(current_user=Depends(auth.get_current_user)):
+    if not sniffer:
+        raise HTTPException(status_code=503, detail="Sniffer not initialized")
+    if not sniffer.ml_engine.clear_training_data():
+        raise HTTPException(status_code=409, detail="Cannot delete training data while retraining")
+    return {"status": "training_data_deleted"}
+
+
 @app.get("/api/network/arp-table")
 async def arp_table(current_user=Depends(auth.get_current_user)):
     return database.get_mac_ip_table()

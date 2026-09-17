@@ -72,6 +72,7 @@ export const api = {
   },
 
   retrainModel: () => request("/model/retrain", { method: "POST" }),
+  deleteModelTrainingData: () => request("/model/training-data", { method: "DELETE" }),
   modelStatus: () => request("/model/status"),
   arpTable: () => request("/network/arp-table"),
 };

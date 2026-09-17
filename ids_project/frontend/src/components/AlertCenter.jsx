@@ -26,6 +26,9 @@ export default function AlertCenter() {
   const [retraining, setRetraining] = useState(false);
   const [modelStatus, setModelStatus] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDeleteTraining, setConfirmDeleteTraining] = useState(false);
+  const [deleteTrainingText, setDeleteTrainingText] = useState("");
+  const [deletingTraining, setDeletingTraining] = useState(false);
 
   const loadAlerts = useCallback(async () => {
     const params = {};
@@ -87,6 +90,21 @@ export default function AlertCenter() {
     loadAlerts();
   };
 
+  const handleDeleteTraining = async () => {
+    if (deleteTrainingText !== "DELETE") return;
+    setDeletingTraining(true);
+    try {
+      await api.deleteModelTrainingData();
+      setModelStatus(await api.modelStatus());
+      setConfirmDeleteTraining(false);
+      setDeleteTrainingText("");
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setDeletingTraining(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -129,12 +147,46 @@ export default function AlertCenter() {
           </a>
           <button
             onClick={handleRetrain}
-            disabled={retraining}
+            disabled={retraining || deletingTraining}
             className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium"
           >
             {retraining ? <Loader2 size={16} className="animate-spin" /> : null}
             {retraining ? "Retraining..." : "Retrain Model with Feedback"}
           </button>
+          {!confirmDeleteTraining ? (
+            <button
+              onClick={() => setConfirmDeleteTraining(true)}
+              disabled={retraining || deletingTraining}
+              className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-red-600/30 text-red-400 disabled:opacity-50 px-3 py-2 rounded-lg"
+            >
+              <Trash2 size={14} /> Delete ML Training
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2 text-sm bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+              <span className="text-red-300">This deletes the model, bootstrap samples, and feedback. Type DELETE to continue.</span>
+              <div className="flex items-center gap-1">
+                <input
+                  value={deleteTrainingText}
+                  onChange={(e) => setDeleteTrainingText(e.target.value)}
+                  placeholder="DELETE"
+                  className="w-24 bg-slate-900 border border-red-500/30 rounded px-2 py-1 text-xs"
+                />
+                <button
+                  onClick={handleDeleteTraining}
+                  disabled={deletingTraining || deleteTrainingText !== "DELETE"}
+                  className="text-red-300 font-medium px-2 disabled:opacity-40"
+                >
+                  {deletingTraining ? "Deleting..." : "Confirm"}
+                </button>
+                <button
+                  onClick={() => { setConfirmDeleteTraining(false); setDeleteTrainingText(""); }}
+                  className="text-slate-400 px-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           {!confirmClear ? (
             <button onClick={() => setConfirmClear(true)} className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded-lg">
               <Trash2 size={14} /> Clear All Logs

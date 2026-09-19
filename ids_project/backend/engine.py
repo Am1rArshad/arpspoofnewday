@@ -83,13 +83,20 @@ class RuleEngine:
 class MLEngine:
     """Stage 2: XGBoost threat scorer with bootstrap + active-learning retrain."""
 
-    def __init__(self):
+    def __init__(self, config=None):
         self.lock = threading.Lock()
         self.model: xgb.XGBClassifier | None = None
         self.is_retraining = False
         self.last_trained_at = None
         self.training_samples = 0
+        self.threshold_low = 0.4
+        self.threshold_high = 0.7
+        self.reload_config(config or {})
         self._load_model()
+
+    def reload_config(self, config: dict):
+        self.threshold_low = float(config.get("threshold_low", 0.4))
+        self.threshold_high = float(config.get("threshold_high", 0.7))
 
     # ---------- persistence ----------
     def _load_model(self):
@@ -182,11 +189,10 @@ class MLEngine:
             except Exception:
                 return []
 
-    @staticmethod
-    def categorize(score: float) -> str:
-        if score < 0.4:
+    def categorize(self, score: float) -> str:
+        if score < self.threshold_low:
             return "Low"
-        elif score < 0.7:
+        elif score < self.threshold_high:
             return "Medium"
         return "High"
 
@@ -245,9 +251,20 @@ class MLEngine:
         return True
 
     def status(self):
+        bootstrap = self._load_bootstrap_samples()
+        feedback = database.get_feedback_dataset()
         return {
             "model_loaded": self.model is not None,
             "is_retraining": self.is_retraining,
             "last_trained_at": self.last_trained_at,
             "training_samples": self.training_samples,
+            "bootstrap_samples": len(bootstrap),
+            "bootstrap_positive_samples": int((bootstrap["label"] == 1).sum()) if not bootstrap.empty else 0,
+            "bootstrap_negative_samples": int((bootstrap["label"] == 0).sum()) if not bootstrap.empty else 0,
+            "feedback_samples": len(feedback),
+            "model_file_exists": MODEL_PATH.exists(),
+            "model_file_size_bytes": MODEL_PATH.stat().st_size if MODEL_PATH.exists() else 0,
+            "feature_count": len(FEATURE_COLUMNS),
+            "threshold_low": self.threshold_low,
+            "threshold_high": self.threshold_high,
         }

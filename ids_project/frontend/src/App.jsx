@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Shield, Activity, Bell, Settings } from "lucide-react";
+import { Shield, Activity, Bell, BrainCircuit, Settings } from "lucide-react";
 import { api, getToken } from "./api";
 import Login from "./components/Login";
 import NetworkOverview from "./components/NetworkOverview";
 import AlertCenter from "./components/AlertCenter";
 import AccountConfig from "./components/AccountConfig";
+import ModelControl from "./components/ModelControl";
 
 const TABS = [
   { id: "overview", label: "Network Overview", icon: Activity },
   { id: "alerts", label: "Alert Center", icon: Bell },
+  { id: "model", label: "Model Control", icon: BrainCircuit },
   { id: "account", label: "Account & Config", icon: Settings },
 ];
 
@@ -77,6 +79,7 @@ export default function App() {
       <main className="flex-1 p-6 overflow-y-auto">
         {tab === "overview" && <NetworkOverview />}
         {tab === "alerts" && <AlertCenter />}
+        {tab === "model" && <ModelControl />}
         {tab === "account" && <AccountConfig user={user} onLogout={handleLogout} />}
       </main>
     </div>

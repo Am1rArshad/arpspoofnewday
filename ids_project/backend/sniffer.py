@@ -37,7 +37,7 @@ class Sniffer:
 
         config = database.get_config()
         self.rule_engine = RuleEngine(config)
-        self.ml_engine = MLEngine()
+        self.ml_engine = MLEngine(config)
 
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -57,6 +57,7 @@ class Sniffer:
     def reload_config(self):
         config = database.get_config()
         self.rule_engine.reload_config(config)
+        self.ml_engine.reload_config(config)
         new_interface = self._resolve_interface(config.get("interface"))
         if new_interface != self.interface:
             self.interface = new_interface
@@ -108,7 +109,7 @@ class Sniffer:
             else:
                 # Stage 2: ML scoring for anything the rules didn't already flag
                 score = self.ml_engine.score(feature_dict)
-                if score >= 0.4:  # Medium or High per spec thresholds
+                if score >= self.ml_engine.threshold_low:
                     severity = self.ml_engine.categorize(score)
                     shap_expl = self.ml_engine.explain(feature_dict)
                     status = "suspicious"

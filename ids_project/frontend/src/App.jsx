@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Shield, Activity, Bell, BrainCircuit, Settings } from "lucide-react";
+import { Shield, Activity, Bell, BrainCircuit, Settings, Sun, Moon } from "lucide-react";
 import { api, getToken } from "./api";
 import Login from "./components/Login";
 import NetworkOverview from "./components/NetworkOverview";
@@ -19,6 +19,14 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("overview");
   const [checking, setChecking] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("arp-ids-theme") !== "light");
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    document.documentElement.classList.toggle("light-mode", !darkMode);
+    document.body.classList.toggle("light-mode", !darkMode);
+    localStorage.setItem("arp-ids-theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
   useEffect(() => {
     if (getToken()) {
@@ -44,7 +52,7 @@ export default function App() {
   if (!authed) return <Login onSuccess={handleLoginSuccess} />;
 
   return (
-    <div className="min-h-screen flex">
+    <div className={`min-h-screen flex ${darkMode ? "" : "light-mode"}`}>
       <aside className="w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col">
         <div className="flex items-center gap-2 mb-8 px-2">
           <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
@@ -76,7 +84,16 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="relative flex-1 p-6 overflow-y-auto">
+        <button
+          type="button"
+          onClick={() => setDarkMode((isDark) => !isDark)}
+          aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
+          title={`Switch to ${darkMode ? "light" : "dark"} mode`}
+          className="absolute top-5 right-6 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-red-500 hover:text-white light-mode:border-slate-300 light-mode:bg-white light-mode:text-slate-600 light-mode:hover:text-slate-900"
+        >
+          {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
         {tab === "overview" && <NetworkOverview />}
         {tab === "alerts" && <AlertCenter />}
         {tab === "model" && <ModelControl />}

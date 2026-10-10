@@ -57,6 +57,8 @@ export const api = {
 
   getConfig: () => request("/config"),
   updateConfig: (payload) => request("/config", { method: "PUT", body: JSON.stringify(payload) }),
+  testEmail: (recipient) => request("/config/test-email", { method: "POST", body: JSON.stringify({ recipient }) }),
+  testNtfy: (server, topic, token) => request("/config/test-ntfy", { method: "POST", body: JSON.stringify({ server, topic, token }) }),
 
   getAlerts: (params = {}) => {
     const qs = new URLSearchParams(params).toString();

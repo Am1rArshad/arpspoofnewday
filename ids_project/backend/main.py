@@ -12,8 +12,13 @@ import csv
 import io
 import json
 import logging
+import smtplib
+import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime
+from email.message import EmailMessage
 from typing import Optional
 
 import psutil
@@ -98,6 +103,122 @@ def handle_new_alert(alert_payload: dict):
 
     if main_loop:
         asyncio.run_coroutine_threadsafe(alerts_manager.broadcast(record), main_loop)
+    send_alert_email(alert_payload)
+    send_ntfy_notification(alert_payload)
+
+
+SEVERITY_RANK = {"Low": 1, "Medium": 2, "High": 3}
+
+
+def _email_config():
+    config = database.get_config()
+    config["email_notifications_enabled"] = config.get("email_notifications_enabled", "false").lower() == "true"
+    config["smtp_use_tls"] = config.get("smtp_use_tls", "true").lower() == "true"
+    return config
+
+
+def _send_email(subject: str, body: str, config: dict):
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = config["smtp_username"] or config["notification_email"]
+    message["To"] = config["notification_email"]
+    message.set_content(body)
+
+    smtp_port = int(config.get("smtp_port") or 587)
+    if config["smtp_use_tls"]:
+        with smtplib.SMTP(config["smtp_host"], smtp_port, timeout=15) as server:
+            server.starttls()
+            if config.get("smtp_username"):
+                server.login(config["smtp_username"], config.get("smtp_password", ""))
+            server.send_message(message)
+    else:
+        with smtplib.SMTP_SSL(config["smtp_host"], smtp_port, timeout=15) as server:
+            if config.get("smtp_username"):
+                server.login(config["smtp_username"], config.get("smtp_password", ""))
+            server.send_message(message)
+
+
+def send_alert_email(alert_payload: dict):
+    config = _email_config()
+    minimum = config.get("email_min_severity", "High")
+    if (
+        not config["email_notifications_enabled"]
+        or not config.get("smtp_host")
+        or not config.get("notification_email")
+        or SEVERITY_RANK.get(alert_payload.get("severity"), 0) < SEVERITY_RANK.get(minimum, 3)
+    ):
+        return
+
+    body = (
+        f"Severity: {alert_payload['severity']}\n"
+        f"Alert type: {alert_payload['alert_type']}\n"
+        f"Source IP: {alert_payload['source_ip']}\n"
+        f"Source MAC: {alert_payload['source_mac']}\n\n"
+        f"{alert_payload['description']}\n"
+    )
+    threading.Thread(
+        target=_send_email_safely,
+        args=(f"IDS {alert_payload['severity']} alert: {alert_payload['alert_type']}", body, config),
+        daemon=True,
+    ).start()
+
+
+def _send_email_safely(subject: str, body: str, config: dict):
+    try:
+        _send_email(subject, body, config)
+    except Exception:
+        logger.exception("Unable to send IDS alert email")
+
+
+def _send_ntfy(config: dict, title: str, body: str, priority: str):
+    server = config.get("ntfy_server", "https://ntfy.sh").rstrip("/")
+    topic = config.get("ntfy_topic", "").strip()
+    request = urllib.request.Request(
+        f"{server}/{topic}",
+        data=body.encode("utf-8"),
+        headers={
+            "Title": title,
+            "Priority": priority,
+            "Tags": "rotating_light,shield",
+            **({"Authorization": f"Bearer {config['ntfy_token']}"} if config.get("ntfy_token") else {}),
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        if response.status >= 300:
+            raise RuntimeError(f"ntfy returned HTTP {response.status}")
+
+
+def send_ntfy_notification(alert_payload: dict):
+    config = _email_config()
+    config["ntfy_notifications_enabled"] = config.get("ntfy_notifications_enabled", "false").lower() == "true"
+    minimum = config.get("ntfy_min_severity", "High")
+    if (
+        not config["ntfy_notifications_enabled"]
+        or not config.get("ntfy_topic")
+        or SEVERITY_RANK.get(alert_payload.get("severity"), 0) < SEVERITY_RANK.get(minimum, 3)
+    ):
+        return
+
+    priority = {"High": "urgent", "Medium": "high", "Low": "default"}.get(alert_payload["severity"], "default")
+    body = (
+        f"Severity: {alert_payload['severity']}\n"
+        f"Alert type: {alert_payload['alert_type']}\n"
+        f"Source: {alert_payload['source_ip']} ({alert_payload['source_mac']})\n\n"
+        f"{alert_payload['description']}"
+    )
+    threading.Thread(
+        target=_send_ntfy_safely,
+        args=(config, f"IDS {alert_payload['severity']} alert", body, priority),
+        daemon=True,
+    ).start()
+
+
+def _send_ntfy_safely(config: dict, title: str, body: str, priority: str):
+    try:
+        _send_ntfy(config, title, body, priority)
+    except Exception:
+        logger.exception("Unable to send ntfy notification")
 
 
 def handle_state_update(ip, mac, status):
@@ -214,6 +335,12 @@ async def get_config(current_user=Depends(auth.get_current_user)):
     config["available_interfaces"] = list_interfaces()
     config["available_dashboard_interfaces"] = list_interfaces()
     config["whitelist_gateway_macs"] = json.loads(config.get("whitelist_gateway_macs", "[]"))
+    config["email_notifications_enabled"] = config.get("email_notifications_enabled", "false").lower() == "true"
+    config["smtp_use_tls"] = config.get("smtp_use_tls", "true").lower() == "true"
+    config["smtp_password_configured"] = bool(config.get("smtp_password"))
+    config.pop("smtp_password", None)
+    config["ntfy_token_configured"] = bool(config.get("ntfy_token"))
+    config.pop("ntfy_token", None)
     return config
 
 
@@ -224,6 +351,19 @@ class ConfigUpdateRequest(BaseModel):
     threshold_high: Optional[float] = None
     gratuitous_burst_count: Optional[int] = None
     whitelist_gateway_macs: Optional[list[str]] = None
+    email_notifications_enabled: Optional[bool] = None
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_use_tls: Optional[bool] = None
+    notification_email: Optional[str] = None
+    email_min_severity: Optional[str] = None
+    ntfy_notifications_enabled: Optional[bool] = None
+    ntfy_server: Optional[str] = None
+    ntfy_topic: Optional[str] = None
+    ntfy_token: Optional[str] = None
+    ntfy_min_severity: Optional[str] = None
 
 
 @app.put("/api/config")
@@ -240,9 +380,63 @@ async def update_config(req: ConfigUpdateRequest, current_user=Depends(auth.get_
         database.set_config("gratuitous_burst_count", req.gratuitous_burst_count)
     if req.whitelist_gateway_macs is not None:
         database.set_config("whitelist_gateway_macs", json.dumps(req.whitelist_gateway_macs))
+    for key in (
+        "email_notifications_enabled", "smtp_host", "smtp_port", "smtp_username",
+        "smtp_use_tls", "notification_email", "email_min_severity",
+        "ntfy_notifications_enabled", "ntfy_server", "ntfy_topic", "ntfy_min_severity",
+    ):
+        value = getattr(req, key)
+        if value is not None:
+            database.set_config(key, str(value).lower() if isinstance(value, bool) else value)
+    if req.smtp_password:
+        database.set_config("smtp_password", req.smtp_password)
+    if req.ntfy_token:
+        database.set_config("ntfy_token", req.ntfy_token)
     if sniffer:
         sniffer.reload_config()
     return {"status": "updated"}
+
+
+class EmailTestRequest(BaseModel):
+    recipient: Optional[str] = None
+
+
+@app.post("/api/config/test-email")
+async def test_email(req: EmailTestRequest, current_user=Depends(auth.get_current_user)):
+    config = _email_config()
+    recipient = req.recipient or config.get("notification_email")
+    if not config.get("smtp_host") or not recipient:
+        raise HTTPException(status_code=400, detail="Configure an SMTP host and notification email first")
+    config["notification_email"] = recipient
+    try:
+        _send_email("IDS test notification", "This is a test email from your ARP IDS dashboard.", config)
+    except Exception as exc:
+        logger.exception("Unable to send test email")
+        raise HTTPException(status_code=502, detail=f"Email delivery failed: {exc}") from exc
+    return {"status": "sent"}
+
+
+class NtfyTestRequest(BaseModel):
+    server: Optional[str] = None
+    topic: Optional[str] = None
+    token: Optional[str] = None
+
+
+@app.post("/api/config/test-ntfy")
+async def test_ntfy(req: NtfyTestRequest, current_user=Depends(auth.get_current_user)):
+    config = _email_config()
+    config["ntfy_server"] = req.server or config.get("ntfy_server", "https://ntfy.sh")
+    config["ntfy_topic"] = req.topic or config.get("ntfy_topic", "")
+    if req.token:
+        config["ntfy_token"] = req.token
+    if not config["ntfy_topic"]:
+        raise HTTPException(status_code=400, detail="Configure an ntfy topic first")
+    try:
+        _send_ntfy(config, "IDS test notification", "This is a test notification from your ARP IDS dashboard.", "default")
+    except (urllib.error.URLError, OSError, RuntimeError) as exc:
+        logger.exception("Unable to send ntfy test notification")
+        raise HTTPException(status_code=502, detail=f"ntfy delivery failed: {exc}") from exc
+    return {"status": "sent"}
 
 
 # ---------------------------------------------------------------------------

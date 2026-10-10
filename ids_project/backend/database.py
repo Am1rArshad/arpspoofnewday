@@ -103,6 +103,19 @@ def init_db():
             "gratuitous_burst_count": "3",
             "gratuitous_burst_window_sec": "30",
             "whitelist_gateway_macs": json.dumps([]),
+            "email_notifications_enabled": "false",
+            "smtp_host": "",
+            "smtp_port": "587",
+            "smtp_username": "",
+            "smtp_password": "",
+            "smtp_use_tls": "true",
+            "notification_email": "",
+            "email_min_severity": "High",
+            "ntfy_notifications_enabled": "false",
+            "ntfy_server": "https://ntfy.sh",
+            "ntfy_topic": "",
+            "ntfy_token": "",
+            "ntfy_min_severity": "High",
         }
         for k, v in defaults.items():
             cur.execute(

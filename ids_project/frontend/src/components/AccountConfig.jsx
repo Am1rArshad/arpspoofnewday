@@ -38,12 +38,13 @@ export default function AccountConfig({ user, onLogout }) {
     try {
       await api.updateConfig({
         interface: config.interface,
+        dashboard_interface: config.dashboard_interface,
         threshold_low: parseFloat(config.threshold_low),
         threshold_high: parseFloat(config.threshold_high),
         gratuitous_burst_count: parseInt(config.gratuitous_burst_count, 10),
         whitelist_gateway_macs: config.whitelist_gateway_macs,
       });
-      setConfigMsg("Configuration saved. Sniffer reloaded.");
+      setConfigMsg("Configuration saved. Restart the IDS to apply the dashboard interface.");
     } catch (err) {
       setConfigMsg(err.message || "Save failed");
     }
@@ -113,6 +114,21 @@ export default function AccountConfig({ user, onLogout }) {
                 <option key={iface} value={iface}>{iface}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-slate-500">Dashboard Interface (external access)</label>
+            <select
+              value={config.dashboard_interface || ""}
+              onChange={(e) => setConfig({ ...config, dashboard_interface: e.target.value })}
+              className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2"
+            >
+              {(config.available_dashboard_interfaces || []).length === 0 && <option value="">(none detected)</option>}
+              {(config.available_dashboard_interfaces || []).map((iface) => (
+                <option key={iface} value={iface}>{iface}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1">Restart the IDS after changing this interface.</p>
           </div>
 
           <div className="grid grid-cols-3 gap-4">

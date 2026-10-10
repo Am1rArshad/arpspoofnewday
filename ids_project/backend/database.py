@@ -6,10 +6,13 @@ so the storage layer has no extra install requirements.
 """
 import sqlite3
 import json
+import socket
 import threading
 import time
 from pathlib import Path
 from contextlib import contextmanager
+
+import psutil
 
 DB_PATH = Path(__file__).parent / "ids_data.db"
 
@@ -93,7 +96,8 @@ def init_db():
 
         # sensible defaults
         defaults = {
-            "interface": "eth0",
+            "interface": "ens33",
+            "dashboard_interface": "ens37",
             "threshold_low": "0.4",
             "threshold_high": "0.7",
             "gratuitous_burst_count": "3",
@@ -104,6 +108,7 @@ def init_db():
             cur.execute(
                 "INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (k, v)
             )
+        cur.execute("UPDATE config SET value = 'ens33' WHERE key = 'interface' AND value = 'eth0'")
 
         # default admin user: admin / admin123 (bcrypt hash generated at import time)
         cur.execute("SELECT COUNT(*) as c FROM users")
@@ -222,10 +227,35 @@ def upsert_mac_ip(ip, mac, status, now):
             """, (mac, status, now, change_count, ip))
 
 
+def get_local_network_addresses():
+    """Return the host's current IPv4 and MAC addresses."""
+    local_ips = set()
+    local_macs = set()
+    for addresses in psutil.net_if_addrs().values():
+        for address in addresses:
+            if address.family == socket.AF_INET:
+                local_ips.add(address.address)
+            elif address.family == psutil.AF_LINK:
+                local_macs.add(address.address.lower())
+    return local_ips, local_macs
+
+
+def is_local_network_address(ip, mac):
+    local_ips, local_macs = get_local_network_addresses()
+    return ip in local_ips or (mac or "").lower() in local_macs
+
+
 def get_mac_ip_table():
+    local_ips, local_macs = get_local_network_addresses()
+
     with db_cursor() as cur:
         cur.execute("SELECT * FROM mac_ip_state ORDER BY last_seen DESC LIMIT 200")
-        rows = [dict(r) for r in cur.fetchall()]
+        rows = [
+            dict(row)
+            for row in cur.fetchall()
+            if row["ip"] not in local_ips
+            and (row["mac"] or "").lower() not in local_macs
+        ]
     return rows
 
 

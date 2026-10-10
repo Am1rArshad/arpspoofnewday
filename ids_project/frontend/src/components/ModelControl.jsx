@@ -92,8 +92,7 @@ export default function ModelControl() {
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <BrainCircuit className="text-red-400" size={22} />
+        <div>
           <div>
             <h3 className="text-sm font-medium">Training data detail</h3>
             <p className="text-xs text-slate-500">Bootstrap data is generated from captured ARP rule results.</p>

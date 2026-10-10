@@ -74,6 +74,10 @@ class Sniffer:
             if not pkt.haslayer(ARP):
                 return
 
+            arp = pkt[ARP]
+            if database.is_local_network_address(arp.psrc, arp.hwsrc):
+                return
+
             self.packets_processed += 1
             extracted = self.tracker.extract(pkt)
             if extracted is None:

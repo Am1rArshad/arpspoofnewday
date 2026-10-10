@@ -37,12 +37,17 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Option A: run as root (simplest for a lab/demo environment)
-sudo venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+sudo venv/bin/python -m serve
 
 # Option B: grant capabilities instead of running the whole server as root
 sudo setcap cap_net_raw,cap_net_admin=eip $(readlink -f venv/bin/python3)
-uvicorn main:app --host 0.0.0.0 --port 8000
+python -m serve
 ```
+
+The default capture interface is `ens33` and the dashboard interface is
+`ens37`. The launcher binds the API and frontend to the IPv4 address assigned
+to the dashboard interface so it can be reached from outside the VM. Change
+the dashboard interface in Account & Configuration, then restart the IDS.
 
 The first run creates `ids_data.db` (SQLite) with a default admin account:
 

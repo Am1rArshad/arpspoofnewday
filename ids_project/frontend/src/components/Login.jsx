@@ -24,7 +24,7 @@ export default function Login({ onSuccess }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950">
-      <form onSubmit={submit} className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
+      <form onSubmit={submit} className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8">
         <div className="flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center mb-3">
             <Shield className="text-red-500" size={28} />

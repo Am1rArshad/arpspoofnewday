@@ -212,12 +212,14 @@ async def update_account(req: UpdateAccountRequest, current_user=Depends(auth.ge
 async def get_config(current_user=Depends(auth.get_current_user)):
     config = database.get_config()
     config["available_interfaces"] = list_interfaces()
+    config["available_dashboard_interfaces"] = list_interfaces()
     config["whitelist_gateway_macs"] = json.loads(config.get("whitelist_gateway_macs", "[]"))
     return config
 
 
 class ConfigUpdateRequest(BaseModel):
     interface: Optional[str] = None
+    dashboard_interface: Optional[str] = None
     threshold_low: Optional[float] = None
     threshold_high: Optional[float] = None
     gratuitous_burst_count: Optional[int] = None
@@ -228,6 +230,8 @@ class ConfigUpdateRequest(BaseModel):
 async def update_config(req: ConfigUpdateRequest, current_user=Depends(auth.get_current_user)):
     if req.interface is not None:
         database.set_config("interface", req.interface)
+    if req.dashboard_interface is not None:
+        database.set_config("dashboard_interface", req.dashboard_interface)
     if req.threshold_low is not None:
         database.set_config("threshold_low", req.threshold_low)
     if req.threshold_high is not None:

@@ -109,13 +109,21 @@ if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
     (cd "$FRONTEND_DIR" && npm install)
 fi
 
-start_process "backend" "$BACKEND_DIR" "$BACKEND_PID_FILE" "$RUN_DIR/backend.log" \
-    "$PYTHON" -m uvicorn main:app --host 0.0.0.0 --port 8000
-start_process "frontend" "$FRONTEND_DIR" "$FRONTEND_PID_FILE" "$RUN_DIR/frontend.log" \
-    npm run dev -- --host 0.0.0.0
+DASHBOARD_INTERFACE="$(cd "$BACKEND_DIR" && "$PYTHON" -c 'import database; database.init_db(); print(database.get_config().get("dashboard_interface", "ens37"))' \
+    2>"$RUN_DIR/backend.log")"
+DASHBOARD_HOST="$($PYTHON -c 'import psutil, socket, sys; iface=sys.argv[1]; print(next(a.address for a in psutil.net_if_addrs().get(iface, []) if a.family == socket.AF_INET))' \
+    "$DASHBOARD_INTERFACE" 2>>"$RUN_DIR/backend.log")" || {
+    echo "No IPv4 address found on dashboard interface $DASHBOARD_INTERFACE. Check $RUN_DIR/backend.log." >&2
+    exit 1
+}
 
-echo "Backend:  http://localhost:8000"
-echo "Frontend: http://localhost:5173"
+start_process "backend" "$BACKEND_DIR" "$BACKEND_PID_FILE" "$RUN_DIR/backend.log" \
+    "$PYTHON" -m serve
+start_process "frontend" "$FRONTEND_DIR" "$FRONTEND_PID_FILE" "$RUN_DIR/frontend.log" \
+    env VITE_API_TARGET="http://$DASHBOARD_HOST:8000" npm run dev -- --host "$DASHBOARD_HOST"
+
+echo "Backend:  http://$DASHBOARD_HOST:8000"
+echo "Frontend: http://$DASHBOARD_HOST:5173"
 echo "Logs:     $RUN_DIR/backend.log and $RUN_DIR/frontend.log"
 echo "Press Ctrl-C to stop both services."
 

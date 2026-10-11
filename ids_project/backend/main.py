@@ -77,6 +77,16 @@ alerts_manager = ConnectionManager()
 
 sniffer: Optional[Sniffer] = None
 main_loop: Optional[asyncio.AbstractEventLoop] = None
+MAX_ALERT_RANGE_SECONDS = 90 * 24 * 60 * 60
+
+
+def validate_alert_range(start: Optional[float], end: Optional[float]):
+    if start is not None and end is not None:
+        if end < start or end - start > MAX_ALERT_RANGE_SECONDS:
+            raise HTTPException(
+                status_code=400,
+                detail="Selected duration exceeds 3 months. Longer duration may cause short of storage.",
+            )
 
 
 def handle_new_alert(alert_payload: dict):
@@ -450,6 +460,7 @@ async def get_alerts(
     limit: int = 500,
     current_user=Depends(auth.get_current_user),
 ):
+    validate_alert_range(start, end)
     return database.list_alerts(start_ts=start, end_ts=end, severity=severity, limit=limit)
 
 
@@ -486,9 +497,11 @@ async def export_alerts(
     fmt: str,
     start: Optional[float] = None,
     end: Optional[float] = None,
+    severity: Optional[str] = None,
     current_user=Depends(auth.get_current_user),
 ):
-    alerts = database.list_alerts(start_ts=start, end_ts=end, limit=100000)
+    validate_alert_range(start, end)
+    alerts = database.list_alerts(start_ts=start, end_ts=end, severity=severity, limit=100000)
     if fmt == "json":
         return StreamingResponse(
             io.BytesIO(json.dumps(alerts, indent=2).encode()),

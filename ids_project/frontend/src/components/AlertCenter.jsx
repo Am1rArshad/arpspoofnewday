@@ -24,8 +24,24 @@ export default function AlertCenter() {
   const [dateTo, setDateTo] = useState("");
   const [severityFilter, setSeverityFilter] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [rangeError, setRangeError] = useState("");
+
+  const validateRange = (from, to) => {
+    if (!from || !to) {
+      setRangeError("");
+      return true;
+    }
+    const duration = new Date(to).getTime() - new Date(from).getTime();
+    if (duration < 0 || duration > 90 * 24 * 60 * 60 * 1000) {
+      setRangeError("Selected duration exceeds 3 months. Longer duration may cause short of storage.");
+      return false;
+    }
+    setRangeError("");
+    return true;
+  };
 
   const loadAlerts = useCallback(async () => {
+    if (!validateRange(dateFrom, dateTo)) return;
     const params = {};
     if (dateFrom) params.start = new Date(dateFrom).getTime() / 1000;
     if (dateTo) params.end = new Date(dateTo).getTime() / 1000;
@@ -62,14 +78,14 @@ export default function AlertCenter() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-lg font-semibold">Alert Center & Log Management</h2>
-        <div className="flex items-center gap-2 flex-wrap">
-          <input type="datetime-local" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm" />
+      <div className="flex items-center justify-between gap-3 min-h-10">
+        <h2 className="text-lg font-semibold whitespace-nowrap">Alert Center & Log Management</h2>
+        <div className="relative flex shrink-0 items-center gap-2 flex-nowrap">
+          <input type="datetime-local" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); validateRange(e.target.value, dateTo); }}
+            className={`bg-slate-800 border rounded-lg px-2 py-1 text-sm ${rangeError ? "border-red-500/80 ring-1 ring-red-500/20" : "border-slate-700"}`} />
           <span className="text-slate-500 text-sm">to</span>
-          <input type="datetime-local" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm" />
+          <input type="datetime-local" value={dateTo} onChange={(e) => { setDateTo(e.target.value); validateRange(dateFrom, e.target.value); }}
+            className={`bg-slate-800 border rounded-lg px-2 py-1 text-sm ${rangeError ? "border-red-500/80 ring-1 ring-red-500/20" : "border-slate-700"}`} />
           <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm">
             <option value="">All Severities</option>
@@ -80,16 +96,23 @@ export default function AlertCenter() {
           <button onClick={loadAlerts} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
             <RefreshCw size={16} />
           </button>
+          {rangeError && (
+            <p className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-max max-w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-red-500/30 bg-slate-900 px-3 py-2 text-sm text-red-400 shadow-lg" role="alert">
+              {rangeError}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
         <div className="flex items-center gap-2">
-          <a href={api.exportUrl("csv", severityFilter ? { severity: severityFilter } : {})}
+           <a href={rangeError ? undefined : api.exportUrl("csv", { ...(dateFrom ? { start: new Date(dateFrom).getTime() / 1000 } : {}), ...(dateTo ? { end: new Date(dateTo).getTime() / 1000 } : {}), ...(severityFilter ? { severity: severityFilter } : {}) })}
+             onClick={(event) => { if (!validateRange(dateFrom, dateTo)) event.preventDefault(); }}
              className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg">
             <Download size={14} /> CSV
           </a>
-          <a href={api.exportUrl("json", severityFilter ? { severity: severityFilter } : {})}
+           <a href={rangeError ? undefined : api.exportUrl("json", { ...(dateFrom ? { start: new Date(dateFrom).getTime() / 1000 } : {}), ...(dateTo ? { end: new Date(dateTo).getTime() / 1000 } : {}), ...(severityFilter ? { severity: severityFilter } : {}) })}
+             onClick={(event) => { if (!validateRange(dateFrom, dateTo)) event.preventDefault(); }}
              className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg">
             <Download size={14} /> JSON
           </a>

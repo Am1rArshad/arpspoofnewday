@@ -118,8 +118,8 @@ export default function AccountConfig({ user, onLogout }) {
             onClick={() => setActiveSection(section)}
             className={`whitespace-nowrap px-3 py-2 text-sm border-b-2 transition ${
               activeSection === section
-                ? "border-red-500 text-white"
-                : "border-transparent text-slate-500 hover:text-slate-300"
+                ? "account-nav-tab-active border-red-500 text-white"
+                : "account-nav-tab-inactive border-transparent text-slate-500 hover:text-slate-300"
             }`}
           >
             {label}

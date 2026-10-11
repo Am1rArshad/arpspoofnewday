@@ -15,8 +15,10 @@ from contextlib import contextmanager
 import psutil
 
 DB_PATH = Path(__file__).parent / "ids_data.db"
+ALERTS_PATH = Path(__file__).parent / "alerts.json"
 
 _lock = threading.Lock()
+_alerts_lock = threading.Lock()
 
 
 def get_conn():
@@ -123,6 +125,8 @@ def init_db():
             )
         cur.execute("UPDATE config SET value = 'ens33' WHERE key = 'interface' AND value = 'eth0'")
 
+        _migrate_alerts_to_json(cur)
+
         # default admin user: admin / admin123 (bcrypt hash generated at import time)
         cur.execute("SELECT COUNT(*) as c FROM users")
         if cur.fetchone()["c"] == 0:
@@ -149,58 +153,79 @@ def set_config(key: str, value: str):
         )
 
 
+def _read_alerts_unlocked():
+    if not ALERTS_PATH.exists():
+        return []
+    try:
+        with ALERTS_PATH.open(encoding="utf-8") as file:
+            alerts = json.load(file)
+        return alerts if isinstance(alerts, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _write_alerts_unlocked(alerts):
+    temporary_path = ALERTS_PATH.with_suffix(".json.tmp")
+    with temporary_path.open("w", encoding="utf-8") as file:
+        json.dump(alerts, file, separators=(",", ":"))
+        file.flush()
+    temporary_path.replace(ALERTS_PATH)
+
+
+def _migrate_alerts_to_json(cur):
+    if ALERTS_PATH.exists():
+        return
+    cur.execute("SELECT * FROM alerts ORDER BY timestamp ASC")
+    alerts = [dict(row) for row in cur.fetchall()]
+    with _alerts_lock:
+        _write_alerts_unlocked(alerts)
+
+
 def insert_alert(alert: dict) -> int:
-    with db_cursor() as cur:
-        cur.execute("""
-            INSERT INTO alerts (timestamp, alert_type, severity, threat_score,
-                source_ip, source_mac, gateway_ip, old_mac, new_mac, description,
-                features_json, shap_json, detection_stage, pcap_path)
-            VALUES (:timestamp, :alert_type, :severity, :threat_score, :source_ip,
-                :source_mac, :gateway_ip, :old_mac, :new_mac, :description,
-                :features_json, :shap_json, :detection_stage, :pcap_path)
-        """, alert)
-        return cur.lastrowid
+    with _alerts_lock:
+        alerts = _read_alerts_unlocked()
+        alert = {**alert, "id": max((item.get("id", 0) for item in alerts), default=0) + 1}
+        alerts.append(alert)
+        _write_alerts_unlocked(alerts)
+        return alert["id"]
 
 
 def list_alerts(start_ts=None, end_ts=None, severity=None, limit=500):
-    query = "SELECT * FROM alerts WHERE 1=1"
-    params = []
+    with _alerts_lock:
+        alerts = _read_alerts_unlocked()
     if start_ts is not None:
-        query += " AND timestamp >= ?"
-        params.append(start_ts)
+        alerts = [alert for alert in alerts if alert.get("timestamp", 0) >= start_ts]
     if end_ts is not None:
-        query += " AND timestamp <= ?"
-        params.append(end_ts)
+        alerts = [alert for alert in alerts if alert.get("timestamp", 0) <= end_ts]
     if severity:
-        query += " AND severity = ?"
-        params.append(severity)
-    query += " ORDER BY timestamp DESC LIMIT ?"
-    params.append(limit)
-    with db_cursor() as cur:
-        cur.execute(query, params)
-        rows = [dict(r) for r in cur.fetchall()]
-    return rows
+        alerts = [alert for alert in alerts if alert.get("severity") == severity]
+    return sorted(alerts, key=lambda alert: alert.get("timestamp", 0), reverse=True)[:limit]
 
 
 def get_alert(alert_id: int):
-    with db_cursor() as cur:
-        cur.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,))
-        row = cur.fetchone()
-    return dict(row) if row else None
+    with _alerts_lock:
+        return next((alert for alert in _read_alerts_unlocked() if alert.get("id") == alert_id), None)
 
 
 def set_feedback(alert_id: int, label: str):
     """label in {'true_positive', 'false_positive', 'ignore'}"""
+    with _alerts_lock:
+        alerts = _read_alerts_unlocked()
+        alert = next((item for item in alerts if item.get("id") == alert_id), None)
+        if alert is None:
+            return False
+        alert["feedback_label"] = label
+        _write_alerts_unlocked(alerts)
+
+    features_json = alert.get("features_json") or "{}"
     with db_cursor() as cur:
-        cur.execute("UPDATE alerts SET feedback_label = ? WHERE id = ?", (label, alert_id))
-        cur.execute("SELECT features_json FROM alerts WHERE id = ?", (alert_id,))
-        row = cur.fetchone()
-        if row and label in ("true_positive", "false_positive"):
+        if label in ("true_positive", "false_positive"):
             numeric_label = 1 if label == "true_positive" else 0
             cur.execute("""
                 INSERT INTO feedback_dataset (alert_id, features_json, label, created_at)
                 VALUES (?, ?, ?, ?)
-            """, (alert_id, row["features_json"], numeric_label, time.time()))
+            """, (alert_id, features_json, numeric_label, time.time()))
+    return True
 
 
 def get_feedback_dataset():
@@ -216,8 +241,9 @@ def clear_training_data():
 
 
 def clear_all_logs():
+    with _alerts_lock:
+        _write_alerts_unlocked([])
     with db_cursor() as cur:
-        cur.execute("DELETE FROM alerts")
         cur.execute("DELETE FROM feedback_dataset")
 
 

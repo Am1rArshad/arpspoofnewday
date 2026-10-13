@@ -34,6 +34,55 @@ body.light-mode {
   color: var(--text-primary);
 }
 
+.startup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5rem 1rem 1rem;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.startup-popup {
+  width: min(100%, 22rem);
+  padding: 1rem;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+}
+
+.startup-progress-track {
+  height: 0.3rem;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #1e293b;
+}
+
+.startup-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: #ef4444;
+  transition: width 180ms ease-out;
+}
+
+.light-mode .startup-overlay {
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.light-mode .startup-popup {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.light-mode .startup-progress-track {
+  background: #e2e8f0;
+}
+
 .light-mode .bg-slate-950 { background-color: var(--bg-page); }
 .light-mode .bg-slate-900 { background-color: var(--bg-card); }
 .light-mode .bg-slate-800,

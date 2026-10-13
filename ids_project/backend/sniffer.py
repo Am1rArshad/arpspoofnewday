@@ -25,7 +25,7 @@ logger = logging.getLogger("ids.sniffer")
 
 
 class Sniffer:
-    def __init__(self, on_alert, on_state_update=None):
+    def __init__(self, on_alert, on_state_update=None, on_unknown=None):
         """
         on_alert(alert_dict) -> called whenever a new alert is generated.
         on_state_update(ip, mac, status) -> called on every ARP packet so the
@@ -33,6 +33,7 @@ class Sniffer:
         """
         self.on_alert = on_alert
         self.on_state_update = on_state_update
+        self.on_unknown = on_unknown
         self.tracker = ArpStateTracker()
 
         config = database.get_config()
@@ -88,8 +89,16 @@ class Sniffer:
 
             # Stage 1: rule engine (high recall baseline)
             rule_result = self.rule_engine.evaluate(feature_dict, meta)
+            learned_label = database.get_verified_packet_label(
+                meta["source_ip"],
+                meta["dest_ip"],
+                meta["source_mac"],
+                pkt[Ether].dst if pkt.haslayer(Ether) else None,
+                str(meta["opcode"]),
+            )
             self.ml_engine.append_bootstrap_sample(feature_dict, rule_result is not None)
             self.ml_engine.maybe_bootstrap()
+            ml_score = self.ml_engine.score(feature_dict)
 
             status = "suspicious" if rule_result else "legitimate"
 
@@ -110,31 +119,57 @@ class Sniffer:
                     "shap": [],
                     "detection_stage": "rule_engine",
                 }
+            elif learned_label == 1:
+                status = "suspicious"
+                alert_payload = {
+                    "timestamp": meta["timestamp"],
+                    "alert_type": "VERIFIED_ATTACK",
+                    "severity": "High",
+                    "threat_score": 1.0,
+                    "source_ip": meta["source_ip"],
+                    "source_mac": meta["source_mac"],
+                    "gateway_ip": None,
+                    "old_mac": meta.get("prev_mac"),
+                    "new_mac": meta["source_mac"],
+                    "description": "Traffic matches a packet signature previously verified as a true positive by an analyst.",
+                    "features": feature_dict,
+                    "shap": [],
+                    "detection_stage": "analyst_feedback",
+                }
+            elif learned_label == 0:
+                status = "legitimate"
+            elif ml_score >= self.ml_engine.threshold_low:
+                status = "suspicious"
+                alert_payload = {
+                    "timestamp": meta["timestamp"],
+                    "alert_type": "ML_ANOMALY",
+                    "severity": self.ml_engine.categorize(ml_score),
+                    "threat_score": ml_score,
+                    "source_ip": meta["source_ip"],
+                    "source_mac": meta["source_mac"],
+                    "gateway_ip": None,
+                    "old_mac": meta.get("prev_mac"),
+                    "new_mac": meta["source_mac"],
+                    "description": (
+                        f"XGBoost flagged traffic from {meta['source_ip']} "
+                        f"({meta['source_mac']}) with threat score {ml_score:.3f}."
+                    ),
+                    "features": feature_dict,
+                    "shap": self.ml_engine.explain(feature_dict),
+                    "detection_stage": "ml_engine",
+                }
             else:
-                # Stage 2: ML scoring for anything the rules didn't already flag
-                score = self.ml_engine.score(feature_dict)
-                if score >= self.ml_engine.threshold_low:
-                    severity = self.ml_engine.categorize(score)
-                    shap_expl = self.ml_engine.explain(feature_dict)
-                    status = "suspicious"
-                    alert_payload = {
-                        "timestamp": meta["timestamp"],
-                        "alert_type": "ML_ANOMALY",
-                        "severity": severity,
-                        "threat_score": score,
-                        "source_ip": meta["source_ip"],
-                        "source_mac": meta["source_mac"],
-                        "gateway_ip": None,
-                        "old_mac": meta.get("prev_mac"),
-                        "new_mac": meta["source_mac"],
-                        "description": (
-                            f"ML model flagged traffic from {meta['source_ip']} "
-                            f"({meta['source_mac']}) with threat score {score:.2f}"
-                        ),
-                        "features": feature_dict,
-                        "shap": shap_expl,
-                        "detection_stage": "ml_engine",
-                    }
+                status = "unknown"
+                unknown_payload = {
+                    "timestamp": meta["timestamp"],
+                    "src_ip": meta["source_ip"],
+                    "dst_ip": meta["dest_ip"],
+                    "src_mac": meta["source_mac"],
+                    "dst_mac": pkt[Ether].dst if pkt.haslayer(Ether) else None,
+                    "op_code": str(meta["opcode"]),
+                    "features": feature_dict,
+                    "is_gratuitous": int(meta["is_gratuitous"]),
+                }
 
             database.upsert_mac_ip(meta["source_ip"], meta["source_mac"], status, meta["timestamp"])
             if self.on_state_update:
@@ -142,6 +177,8 @@ class Sniffer:
 
             if alert_payload:
                 self.on_alert(alert_payload)
+            elif self.on_unknown:
+                self.on_unknown(unknown_payload)
 
         except Exception:
             logger.exception("Error processing packet")

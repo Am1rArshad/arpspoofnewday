@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Shield, Activity, Bell, BrainCircuit, Settings, Sun, Moon } from "lucide-react";
+import { Shield, Activity, Bell, BrainCircuit, Settings, Sun, Moon, Loader2 } from "lucide-react";
 import { api, getToken } from "./api";
 import Login from "./components/Login";
 import NetworkOverview from "./components/NetworkOverview";
@@ -19,6 +19,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("overview");
   const [checking, setChecking] = useState(true);
+  const [startupProgress, setStartupProgress] = useState(12);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("arp-ids-theme") !== "light");
 
   useEffect(() => {
@@ -27,6 +28,18 @@ export default function App() {
     document.body.classList.toggle("light-mode", !darkMode);
     localStorage.setItem("arp-ids-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  useEffect(() => {
+    if (!checking) {
+      setStartupProgress(100);
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setStartupProgress((progress) => Math.min(progress + 8, 88));
+    }, 180);
+    return () => window.clearInterval(timer);
+  }, [checking]);
 
   useEffect(() => {
     if (getToken()) {
@@ -48,7 +61,27 @@ export default function App() {
     setUser(null);
   };
 
-  if (checking) return null;
+  if (checking) {
+    return (
+      <div className="startup-overlay" role="status" aria-live="polite">
+        <div className="startup-popup">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10">
+              <Loader2 className="animate-spin text-red-500" size={19} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-100">Starting ARP Security Box</p>
+              <p className="text-xs text-slate-400">Loading modules and connecting to IDS</p>
+            </div>
+          </div>
+          <div className="startup-progress-track" aria-hidden="true">
+            <div className="startup-progress-bar" style={{ width: `${startupProgress}%` }} />
+          </div>
+          <p className="mt-2 text-right text-[11px] text-slate-500">{startupProgress}%</p>
+        </div>
+      </div>
+    );
+  }
   if (!authed) return <Login onSuccess={handleLoginSuccess} />;
 
   return (

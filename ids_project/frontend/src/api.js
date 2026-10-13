@@ -66,7 +66,11 @@ export const api = {
   },
   getAlertDetail: (id) => request(`/alerts/${id}`),
   submitFeedback: (id, label) => request(`/alerts/${id}/feedback`, { method: "POST", body: JSON.stringify({ label }) }),
-  clearLogs: () => request("/alerts", { method: "DELETE" }),
+  unknownPackets: () => request("/unknown-packets"),
+  submitUnknownFeedback: (packetId, decision) => request("/feedback/submit", {
+    method: "POST", body: JSON.stringify({ packet_id: packetId, decision }),
+  }),
+  clearLogs: (type = "flagged") => request(`/alerts?type=${encodeURIComponent(type)}`, { method: "DELETE" }),
   exportUrl: (fmt, params = {}) => {
     const qs = new URLSearchParams(params).toString();
     const token = getToken();

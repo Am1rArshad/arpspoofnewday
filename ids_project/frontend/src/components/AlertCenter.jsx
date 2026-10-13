@@ -1,24 +1,23 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Trash2, Download, Check, X as XIcon, EyeOff } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Download, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { useWebSocket } from "../hooks/useWebSocket";
-import AlertModal from "./AlertModal";
+import AlertTable from "./AlertTable";
+import AlertDetailModal from "./AlertDetailModal";
 
-const severityStyles = {
-  High: "border-l-4 border-red-500 bg-red-500/5",
-  Medium: "border-l-4 border-orange-500 bg-orange-500/5",
-  Low: "border-l-4 border-yellow-500 bg-yellow-500/5",
-};
-
-const severityBadge = {
-  High: "bg-red-500 text-white",
-  Medium: "bg-orange-500 text-white",
-  Low: "bg-yellow-500 text-black",
-};
+const tabs = [
+  ["flagged", "Flagged Alerts"],
+  ["review", "Analyst Review Queue", "UNKNOWN"],
+  ["archived", "Archived Logs"],
+];
 
 export default function AlertCenter() {
+  const [activeTab, setActiveTab] = useState("flagged");
   const [alerts, setAlerts] = useState([]);
+  const [unknownPackets, setUnknownPackets] = useState([]);
+  const [archived, setArchived] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [selectedUnknown, setSelectedUnknown] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -27,10 +26,7 @@ export default function AlertCenter() {
   const [rangeError, setRangeError] = useState("");
 
   const validateRange = (from, to) => {
-    if (!from || !to) {
-      setRangeError("");
-      return true;
-    }
+    if (!from || !to) { setRangeError(""); return true; }
     const duration = new Date(to).getTime() - new Date(from).getTime();
     if (duration < 0 || duration > 90 * 24 * 60 * 60 * 1000) {
       setRangeError("Selected duration exceeds 3 months. Longer duration may cause short of storage.");
@@ -46,148 +42,113 @@ export default function AlertCenter() {
     if (dateFrom) params.start = new Date(dateFrom).getTime() / 1000;
     if (dateTo) params.end = new Date(dateTo).getTime() / 1000;
     if (severityFilter) params.severity = severityFilter;
-    const data = await api.getAlerts(params);
-    setAlerts(data);
+    setAlerts(await api.getAlerts(params));
   }, [dateFrom, dateTo, severityFilter]);
 
-  useEffect(() => { loadAlerts(); }, [loadAlerts]);
+  const loadUnknownPackets = useCallback(async () => setUnknownPackets(await api.unknownPackets()), []);
+  useEffect(() => { loadAlerts(); loadUnknownPackets(); }, [loadAlerts, loadUnknownPackets]);
 
-  const onNewAlert = useCallback((alert) => {
-    setAlerts((prev) => [alert, ...prev].slice(0, 500));
+  const onNewAlert = useCallback((event) => {
+    if (event.type === "unknown") setUnknownPackets((prev) => [event, ...prev.filter((row) => row.id !== event.id)].slice(0, 500));
+    else setAlerts((prev) => [event, ...prev].slice(0, 500));
   }, []);
   useWebSocket("/ws/alerts", onNewAlert);
 
-  const openDetail = async (alert) => {
-    setSelected(alert);
-    const detail = await api.getAlertDetail(alert.id);
-    setSelectedDetail(detail);
+  const openAlert = async (row, unknown = false) => {
+    setSelected(row);
+    setSelectedUnknown(unknown);
+    setSelectedDetail(unknown ? row : await api.getAlertDetail(row.id));
   };
 
-  const handleFeedback = async (id, label) => {
-    await api.submitFeedback(id, label);
+  const handleFeedback = async (row, decision, isUnknown = selectedUnknown) => {
+    if (isUnknown) {
+      await api.submitUnknownFeedback(row.id, decision);
+      setUnknownPackets((prev) => prev.filter((packet) => packet.id !== row.id));
+    } else {
+      await api.submitFeedback(row.id, decision);
+      setAlerts((prev) => prev.map((alert) => alert.id === row.id ? { ...alert, feedback_label: decision } : alert));
+    }
     setSelected(null);
     setSelectedDetail(null);
-    loadAlerts();
   };
 
-  const handleClear = async () => {
-    await api.clearLogs();
+  const handleClearAll = async () => {
+    await api.clearLogs(activeTab === "flagged" ? "flagged" : activeTab === "review" ? "unknown" : "archived");
+    if (activeTab === "flagged") {
+      setArchived((prev) => [...prev, ...alerts]);
+      setAlerts([]);
+    } else if (activeTab === "review") {
+      setUnknownPackets([]);
+    } else {
+      setArchived([]);
+    }
     setConfirmClear(false);
-    loadAlerts();
   };
+
+  const exportRows = (rows) => {
+    const payload = rows.map((row) => activeTab === "review" ? {
+      timestamp: row.timestamp, alert_type: "UNKNOWN", severity: "UNKNOWN", source_ip: row.src_ip,
+      source_mac: row.src_mac, description: `Unmatched ARP traffic to ${row.dst_ip}`, features: row.features,
+    } : row);
+    return payload;
+  };
+
+  const handleExport = (format) => {
+    if (activeTab === "flagged") {
+      const params = { ...(dateFrom ? { start: new Date(dateFrom).getTime() / 1000 } : {}), ...(dateTo ? { end: new Date(dateTo).getTime() / 1000 } : {}), ...(severityFilter ? { severity: severityFilter } : {}), type: "flagged" };
+      window.open(api.exportUrl(format, params), "_blank");
+      return;
+    }
+    const rows = exportRows(currentRows);
+    const content = format === "json" ? JSON.stringify(rows, null, 2) : [
+      Object.keys(rows[0] || {}).join(","),
+      ...rows.map((row) => Object.values(row).map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")),
+    ].join("\n");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([content], { type: format === "json" ? "application/json" : "text/csv" }));
+    link.download = `${activeTab === "review" ? "unknown-review-queue" : "archived-logs"}.${format}`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const currentRows = activeTab === "flagged" ? alerts : activeTab === "review" ? unknownPackets : archived;
+  const clearConfirmation = activeTab === "flagged"
+    ? "Are you sure you want to clear all Flagged Alerts?"
+    : activeTab === "review"
+      ? "Are you sure you want to clear all pending UNKNOWN review items?"
+      : "Are you sure you want to clear all Archived Logs?";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 min-h-10">
-        <h2 className="text-lg font-semibold whitespace-nowrap">Alert Center & Log Management</h2>
-        <div className="relative flex shrink-0 items-center gap-2 flex-nowrap">
-          <input type="datetime-local" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); validateRange(e.target.value, dateTo); }}
-            className={`bg-slate-800 border rounded-lg px-2 py-1 text-sm ${rangeError ? "border-red-500/80 ring-1 ring-red-500/20" : "border-slate-700"}`} />
-          <span className="text-slate-500 text-sm">to</span>
-          <input type="datetime-local" value={dateTo} onChange={(e) => { setDateTo(e.target.value); validateRange(dateFrom, e.target.value); }}
-            className={`bg-slate-800 border rounded-lg px-2 py-1 text-sm ${rangeError ? "border-red-500/80 ring-1 ring-red-500/20" : "border-slate-700"}`} />
-          <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-sm">
-            <option value="">All Severities</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </select>
-          <button onClick={loadAlerts} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
-            <RefreshCw size={16} />
-          </button>
-          {rangeError && (
-            <p className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-max max-w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-red-500/30 bg-slate-900 px-3 py-2 text-sm text-red-400 shadow-lg" role="alert">
-              {rangeError}
-            </p>
-          )}
+    <div className="space-y-5">
+      <header>
+        <h2 className="text-xl font-semibold">Alert Center &amp; Log Management</h2>
+        <div className="mt-5 flex gap-6 overflow-x-auto border-b border-slate-800">
+          {tabs.map(([id, label, badge]) => <button key={id} onClick={() => { setActiveTab(id); setConfirmClear(false); }} className={`relative whitespace-nowrap px-1 pb-3 text-sm ${activeTab === id ? "text-white" : "text-slate-500 hover:text-slate-300"}`}>
+            {label}{badge && <span className="ml-2 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-300">{unknownPackets.length}</span>}
+            {activeTab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-red-500" />}
+          </button>)}
         </div>
-      </div>
+      </header>
 
-      <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <div className="flex items-center gap-2">
-           <a href={rangeError ? undefined : api.exportUrl("csv", { ...(dateFrom ? { start: new Date(dateFrom).getTime() / 1000 } : {}), ...(dateTo ? { end: new Date(dateTo).getTime() / 1000 } : {}), ...(severityFilter ? { severity: severityFilter } : {}) })}
-             onClick={(event) => { if (!validateRange(dateFrom, dateTo)) event.preventDefault(); }}
-             className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg">
-            <Download size={14} /> CSV
-          </a>
-           <a href={rangeError ? undefined : api.exportUrl("json", { ...(dateFrom ? { start: new Date(dateFrom).getTime() / 1000 } : {}), ...(dateTo ? { end: new Date(dateTo).getTime() / 1000 } : {}), ...(severityFilter ? { severity: severityFilter } : {}) })}
-             onClick={(event) => { if (!validateRange(dateFrom, dateTo)) event.preventDefault(); }}
-             className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg">
-            <Download size={14} /> JSON
-          </a>
-          {!confirmClear ? (
-            <button onClick={() => setConfirmClear(true)} className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded-lg">
-              <Trash2 size={14} /> Clear All Logs
-            </button>
-          ) : (
-            <div className="flex items-center gap-1 text-sm bg-red-500/10 border border-red-500/30 rounded-lg px-2 py-1">
-              <span>Confirm clear?</span>
-              <button onClick={handleClear} className="text-red-400 font-medium px-2">Yes</button>
-              <button onClick={() => setConfirmClear(false)} className="text-slate-400 px-2">No</button>
-            </div>
-          )}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="datetime-local" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); validateRange(event.target.value, dateTo); }} className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm" aria-label="Start date" />
+          <span className="text-slate-500">to</span>
+          <input type="datetime-local" value={dateTo} onChange={(event) => { setDateTo(event.target.value); validateRange(dateFrom, event.target.value); }} className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm" aria-label="End date" />
+          <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm"><option value="">All Severities</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
+          <button onClick={loadAlerts} title="Refresh logs" className="rounded-lg bg-slate-800 p-2 hover:bg-slate-700"><RefreshCw size={16} /></button>
+          <div className="ml-auto flex gap-2"><button onClick={() => handleExport("csv")} disabled={Boolean(rangeError)} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700 disabled:opacity-50"><Download size={14} /> CSV</button><button onClick={() => handleExport("json")} disabled={Boolean(rangeError)} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700 disabled:opacity-50"><Download size={14} /> JSON</button>
+            {!confirmClear ? <button onClick={() => setConfirmClear(true)} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-sm text-red-400 hover:bg-red-600/30"><Trash2 size={14} /> Clear All Logs</button> : <div className="flex items-center gap-2 rounded-lg border border-red-500/30 px-2 text-sm"><span>{clearConfirmation}</span><button onClick={handleClearAll} className="text-red-400">Yes</button><button onClick={() => setConfirmClear(false)} className="text-slate-400">No</button></div>}
+          </div>
         </div>
-      </div>
+        {rangeError && <p className="mt-2 text-sm text-red-400" role="alert">{rangeError}</p>}
+      </section>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-800/50">
-            <tr className="text-left text-slate-400">
-              <th className="py-2 px-4">Timestamp</th>
-              <th className="py-2 px-4">Alert Type</th>
-              <th className="py-2 px-4">Severity</th>
-              <th className="py-2 px-4">Source IP</th>
-              <th className="py-2 px-4">Source MAC</th>
-              <th className="py-2 px-4">Description</th>
-              <th className="py-2 px-4">Feedback</th>
-            </tr>
-          </thead>
-          <tbody>
-            {alerts.length === 0 && (
-              <tr><td colSpan={7} className="py-8 text-center text-slate-500">No alerts detected. Network is secure.</td></tr>
-            )}
-            {alerts.map((a) => (
-              <tr
-                key={a.id}
-                onClick={() => openDetail(a)}
-                className={`cursor-pointer hover:bg-slate-800/40 ${severityStyles[a.severity] || ""}`}
-              >
-                <td className="py-2 px-4 whitespace-nowrap">{new Date(a.timestamp * 1000).toLocaleString()}</td>
-                <td className="py-2 px-4">{a.alert_type}</td>
-                <td className="py-2 px-4">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${severityBadge[a.severity]}`}>{a.severity}</span>
-                </td>
-                <td className="py-2 px-4 font-mono">{a.source_ip}</td>
-                <td className="py-2 px-4 font-mono">{a.source_mac}</td>
-                <td className="py-2 px-4 truncate max-w-xs">{a.description}</td>
-                <td className="py-2 px-4" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-1">
-                    <button title="True Positive" onClick={() => handleFeedback(a.id, "true_positive")}
-                      className={`p-1 rounded ${a.feedback_label === "true_positive" ? "bg-red-600 text-white" : "bg-slate-800 text-red-400 hover:bg-red-600/30"}`}>
-                      <Check size={14} />
-                    </button>
-                    <button title="False Positive" onClick={() => handleFeedback(a.id, "false_positive")}
-                      className={`p-1 rounded ${a.feedback_label === "false_positive" ? "bg-green-600 text-white" : "bg-slate-800 text-green-400 hover:bg-green-600/30"}`}>
-                      <XIcon size={14} />
-                    </button>
-                    <button title="Ignore" onClick={() => handleFeedback(a.id, "ignore")}
-                      className={`p-1 rounded ${a.feedback_label === "ignore" ? "bg-slate-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-                      <EyeOff size={14} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+        <AlertTable rows={currentRows} unknown={activeTab === "review"} onRowClick={(row) => openAlert(row, activeTab === "review")} onFeedback={handleFeedback} emptyMessage={activeTab === "review" ? "No packets awaiting analyst review." : activeTab === "archived" ? "No archived logs." : "No alerts detected."} />
+      </section>
 
-      <AlertModal
-        alert={selectedDetail}
-        onClose={() => { setSelected(null); setSelectedDetail(null); }}
-        onFeedback={handleFeedback}
-      />
+      <AlertDetailModal item={selectedDetail} unknown={selectedUnknown} onClose={() => { setSelected(null); setSelectedDetail(null); }} onFeedback={handleFeedback} />
     </div>
   );
 }

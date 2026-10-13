@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 import database
 from features import FEATURE_COLUMNS, features_to_dataframe
@@ -210,14 +211,23 @@ class MLEngine:
             max_depth=5,
             learning_rate=0.1,
             eval_metric="logloss",
+            scale_pos_weight=int((y_train == 0).sum()) / max(int((y_train == 1).sum()), 1),
             use_label_encoder=False,
         )
         model.fit(X_train, y_train)
+        candidate_accuracy = accuracy_score(y_test, model.predict(X_test))
+        with self.lock:
+            current_model = self.model
+        if current_model is not None:
+            current_accuracy = accuracy_score(y_test, current_model.predict(X_test))
+            if candidate_accuracy < current_accuracy:
+                return False
         with self.lock:
             self.model = model
             self.last_trained_at = time.time()
             self.training_samples = len(df)
         self._save_model()
+        database.mark_feedback_retrained()
         return True
 
     def retrain_from_feedback_async(self, on_complete=None):

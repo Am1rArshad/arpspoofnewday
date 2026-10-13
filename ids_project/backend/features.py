@@ -27,6 +27,33 @@ FEATURE_COLUMNS = [
 ]
 
 
+class FeatureEngineer:
+    """Build the model feature contract from raw ARP data."""
+
+    @staticmethod
+    def transform_raw_arp(raw_packet: dict, computed_features: dict | None = None) -> dict:
+        features = dict(computed_features or {})
+        request_rate = float(features.get("request_rate", features.get("requests_last_60s", 0) / 60.0))
+        distinct_mac_count = int(features.get("distinct_mac_count", features.get("unique_macs_for_ip_seen", 0)))
+        packet_freq = float(features.get("packet_freq", (features.get("requests_last_60s", 0) + features.get("replies_last_60s", 0)) / 60.0))
+        return {
+            "opcode": int(features.get("opcode", raw_packet.get("op_code", 0))),
+            "is_gratuitous": int(features.get("is_gratuitous", raw_packet.get("is_gratuitous", 0))),
+            "gratuitous_burst_count_30s": int(features.get("gratuitous_burst_count_30s", 0)),
+            "unsolicited_reply_ratio": float(features.get("unsolicited_reply_ratio", 0.0)),
+            "ip_mac_churn_rate": float(features.get("ip_mac_churn_rate", 0.0)),
+            "ip_mac_binding_delta": int(features.get("ip_mac_binding_delta", 0)),
+            "requests_last_60s": int(features.get("requests_last_60s", 0)),
+            "replies_last_60s": int(features.get("replies_last_60s", 0)),
+            "unique_macs_for_ip_seen": int(features.get("unique_macs_for_ip_seen", 0)),
+            "seconds_since_ip_first_seen": float(features.get("seconds_since_ip_first_seen", 0.0)),
+            "request_rate": request_rate,
+            "distinct_mac_count": distinct_mac_count,
+            "distinct_target_ips": int(features.get("distinct_target_ips", 0)),
+            "packet_freq": packet_freq,
+        }
+
+
 class ArpStateTracker:
     """Thread-safe rolling state of ARP traffic used for feature engineering."""
 
@@ -43,6 +70,7 @@ class ArpStateTracker:
         self.gratuitous_replies = defaultdict(lambda: deque(maxlen=500))
         # source_mac -> deque of request timestamps
         self.requests = defaultdict(lambda: deque(maxlen=500))
+        self.targets = defaultdict(lambda: deque(maxlen=500))
         # source_mac -> deque of reply timestamps
         self.replies = defaultdict(lambda: deque(maxlen=500))
         # source_mac -> deque of unsolicited reply timestamps (subset of replies)
@@ -97,9 +125,11 @@ class ArpStateTracker:
 
             if opcode == 1:
                 self.requests[src_mac].append(now)
+                self.targets[src_mac].append((now, dst_ip))
                 self.pending_requests_for_ip[dst_ip] = now
             else:
                 self.replies[src_mac].append(now)
+                self.targets[src_mac].append((now, dst_ip))
                 if is_gratuitous:
                     self.gratuitous_replies[src_mac].append(now)
                 # unsolicited: this reply claims a binding (src_ip -> src_mac) that
@@ -111,6 +141,8 @@ class ArpStateTracker:
 
             self._prune(self.requests[src_mac], now, 60)
             self._prune(self.replies[src_mac], now, 60)
+            while self.targets[src_mac] and now - self.targets[src_mac][0][0] > 60:
+                self.targets[src_mac].popleft()
             self._prune(self.unsolicited_replies[src_mac], now, 60)
             self._prune(self.gratuitous_replies[src_mac], now, self.burst_window_sec)
 
@@ -132,6 +164,8 @@ class ArpStateTracker:
 
             self.ip_to_mac[src_ip] = src_mac
             seconds_since_ip_first_seen = now - self.ip_first_seen[src_ip]
+            distinct_target_ips = len({target for _, target in self.targets[src_mac]})
+            packet_freq = (requests_last_60s + replies_last_60s) / 60.0
 
         features = {
             "opcode": opcode,
@@ -144,6 +178,10 @@ class ArpStateTracker:
             "replies_last_60s": replies_last_60s,
             "unique_macs_for_ip_seen": unique_macs,
             "seconds_since_ip_first_seen": round(seconds_since_ip_first_seen, 2),
+            "request_rate": round(requests_last_60s / 60.0, 4),
+            "distinct_mac_count": unique_macs,
+            "distinct_target_ips": distinct_target_ips,
+            "packet_freq": round(packet_freq, 4),
         }
 
         meta = {

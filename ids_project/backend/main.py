@@ -30,6 +30,7 @@ from pydantic import BaseModel
 
 import database
 import auth
+from features import FeatureEngineer
 from sniffer import Sniffer, list_interfaces
 
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +78,7 @@ alerts_manager = ConnectionManager()
 
 sniffer: Optional[Sniffer] = None
 main_loop: Optional[asyncio.AbstractEventLoop] = None
+retraining_task: Optional[asyncio.Task] = None
 MAX_ALERT_RANGE_SECONDS = 90 * 24 * 60 * 60
 
 
@@ -115,6 +117,13 @@ def handle_new_alert(alert_payload: dict):
         asyncio.run_coroutine_threadsafe(alerts_manager.broadcast(record), main_loop)
     send_alert_email(alert_payload)
     send_ntfy_notification(alert_payload)
+
+
+def handle_unknown_packet(packet_payload: dict):
+    packet_id = database.insert_unknown_packet(packet_payload)
+    packet_payload = {**packet_payload, "id": packet_id, "status": "UNKNOWN"}
+    if main_loop:
+        asyncio.run_coroutine_threadsafe(alerts_manager.broadcast({"type": "unknown", **packet_payload}), main_loop)
 
 
 SEVERITY_RANK = {"Low": 1, "Medium": 2, "High": 3}
@@ -240,18 +249,29 @@ def handle_state_update(ip, mac, status):
 # ---------------------------------------------------------------------------
 @app.on_event("startup")
 async def startup():
-    global sniffer, main_loop
+    global sniffer, main_loop, retraining_task
     database.init_db()
     main_loop = asyncio.get_event_loop()
-    sniffer = Sniffer(on_alert=handle_new_alert, on_state_update=handle_state_update)
+    sniffer = Sniffer(on_alert=handle_new_alert, on_state_update=handle_state_update, on_unknown=handle_unknown_packet)
     sniffer.start()
     asyncio.create_task(metrics_broadcast_loop())
+    retraining_task = asyncio.create_task(retraining_scheduler())
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    if retraining_task:
+        retraining_task.cancel()
     if sniffer:
         sniffer.stop()
+
+
+async def retraining_scheduler():
+    """Start background retraining only after 50 new reviewed labels."""
+    while True:
+        await asyncio.sleep(5)
+        if sniffer and not sniffer.ml_engine.is_retraining and database.pending_feedback_count() >= 50:
+            sniffer.ml_engine.retrain_from_feedback_async()
 
 
 async def metrics_broadcast_loop():
@@ -475,7 +495,12 @@ async def get_alert_detail(alert_id: int, current_user=Depends(auth.get_current_
 
 
 class FeedbackRequest(BaseModel):
-    label: str  # 'true_positive' | 'false_positive' | 'ignore'
+    label: str  # 'TP' | 'FN' | 'FP' | 'IGNORE'
+
+
+class UnknownFeedbackRequest(BaseModel):
+    packet_id: int
+    decision: str  # TP | FN | FP | IGNORE
 
 
 @app.post("/api/alerts/{alert_id}/feedback")
@@ -486,21 +511,51 @@ async def submit_feedback(alert_id: int, req: FeedbackRequest, current_user=Depe
     return {"status": "ok"}
 
 
+@app.get("/api/unknown-packets")
+async def get_unknown_packets(limit: int = 500, current_user=Depends(auth.get_current_user)):
+    return database.list_unknown_packets(limit=max(1, min(limit, 1000)))
+
+
+@app.post("/api/feedback/submit")
+async def submit_unknown_feedback(req: UnknownFeedbackRequest, current_user=Depends(auth.get_current_user)):
+    decision = req.decision.upper()
+    if decision not in ("TP", "FN", "FP", "IGNORE"):
+        raise HTTPException(status_code=400, detail="decision must be TP, FN, FP, or IGNORE")
+    packet = database.get_unknown_packet(req.packet_id)
+    if not packet:
+        raise HTTPException(status_code=404, detail="Unknown packet not found")
+    features = FeatureEngineer.transform_raw_arp(packet["raw"], packet["features"])
+    label = 1 if decision in ("TP", "FN") else 0 if decision == "FP" else None
+    if not database.submit_unknown_feedback(req.packet_id, decision, features, label):
+        raise HTTPException(status_code=409, detail="Packet has already been reviewed")
+    return {"status": "ok", "decision": decision, "label": label}
+
+
 @app.delete("/api/alerts")
-async def clear_logs(current_user=Depends(auth.get_current_user)):
-    database.clear_all_logs()
-    return {"status": "cleared"}
+async def clear_logs(type: str = "flagged", current_user=Depends(auth.get_current_user)):
+    if type == "flagged":
+        database.clear_alert_logs()
+    elif type == "unknown":
+        database.clear_unknown_queue()
+    elif type == "archived":
+        return {"status": "cleared", "type": "archived", "scope": "client"}
+    else:
+        raise HTTPException(status_code=400, detail="type must be flagged, unknown, or archived")
+    return {"status": "cleared", "type": type}
 
 
 @app.get("/api/alerts/export/{fmt}")
 async def export_alerts(
     fmt: str,
+    type: str = "flagged",
     start: Optional[float] = None,
     end: Optional[float] = None,
     severity: Optional[str] = None,
     current_user=Depends(auth.get_current_user),
 ):
     validate_alert_range(start, end)
+    if type != "flagged":
+        raise HTTPException(status_code=400, detail="Only flagged logs support server export")
     alerts = database.list_alerts(start_ts=start, end_ts=end, severity=severity, limit=100000)
     if fmt == "json":
         return StreamingResponse(

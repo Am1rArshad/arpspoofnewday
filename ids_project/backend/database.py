@@ -81,6 +81,37 @@ def init_db():
         )""")
 
         cur.execute("""
+        CREATE TABLE IF NOT EXISTS unknown_packets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL NOT NULL,
+            src_ip TEXT NOT NULL,
+            dst_ip TEXT,
+            src_mac TEXT,
+            dst_mac TEXT,
+            op_code TEXT,
+            raw_json TEXT NOT NULL,
+            features_json TEXT NOT NULL,
+            reviewed_at REAL,
+            analyst_decision TEXT,
+            UNIQUE(timestamp, src_ip, src_mac, op_code)
+        )""")
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS active_learning_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            unknown_packet_id INTEGER UNIQUE NOT NULL,
+            timestamp REAL,
+            src_ip TEXT, dst_ip TEXT, src_mac TEXT, dst_mac TEXT, op_code TEXT,
+            ip_mac_binding_delta INTEGER, replies_last_60s INTEGER,
+            seconds_since_ip_first_seen REAL, is_gratuitous INTEGER,
+            unsolicited_reply_ratio REAL, request_rate REAL,
+            distinct_mac_count INTEGER, distinct_target_ips INTEGER,
+            packet_freq REAL, features_json TEXT NOT NULL,
+            analyst_decision TEXT NOT NULL, label INTEGER,
+            reviewed_at REAL NOT NULL, retrained_at REAL
+        )""")
+
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -230,9 +261,98 @@ def set_feedback(alert_id: int, label: str):
 
 def get_feedback_dataset():
     with db_cursor() as cur:
-        cur.execute("SELECT features_json, label FROM feedback_dataset")
+        cur.execute("""SELECT features_json, label FROM feedback_dataset
+                      UNION ALL
+                      SELECT features_json, label FROM active_learning_feedback
+                      WHERE label IS NOT NULL AND analyst_decision != 'IGNORE'""")
         rows = cur.fetchall()
     return [(json.loads(r["features_json"]), r["label"]) for r in rows]
+
+
+def insert_unknown_packet(packet: dict) -> int:
+    with db_cursor() as cur:
+        cur.execute("""
+            INSERT OR IGNORE INTO unknown_packets
+            (timestamp, src_ip, dst_ip, src_mac, dst_mac, op_code, raw_json, features_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (packet["timestamp"], packet["src_ip"], packet["dst_ip"], packet["src_mac"],
+              packet["dst_mac"], packet["op_code"], json.dumps(packet),
+              json.dumps(packet["features"])))
+        if cur.rowcount == 0:
+            cur.execute("""SELECT id FROM unknown_packets
+                          WHERE timestamp=? AND src_ip=? AND src_mac=? AND op_code=?""",
+                        (packet["timestamp"], packet["src_ip"], packet["src_mac"], packet["op_code"]))
+            return cur.fetchone()[0]
+        return cur.lastrowid
+
+
+def list_unknown_packets(limit=500):
+    with db_cursor() as cur:
+        cur.execute("""SELECT * FROM unknown_packets WHERE reviewed_at IS NULL
+                      ORDER BY timestamp DESC LIMIT ?""", (limit,))
+        rows = cur.fetchall()
+    return [{**dict(row), "raw": json.loads(row["raw_json"]), "features": json.loads(row["features_json"])} for row in rows]
+
+
+def get_unknown_packet(packet_id):
+    with db_cursor() as cur:
+        cur.execute("SELECT * FROM unknown_packets WHERE id = ?", (packet_id,))
+        row = cur.fetchone()
+    if not row:
+        return None
+    return {**dict(row), "raw": json.loads(row["raw_json"]), "features": json.loads(row["features_json"])}
+
+
+def get_verified_packet_label(src_ip, dst_ip, src_mac, dst_mac, op_code):
+    """Return the latest analyst label for this recurring ARP signature."""
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT label FROM active_learning_feedback
+            WHERE src_ip = ? AND dst_ip = ? AND src_mac = ? AND dst_mac = ?
+              AND op_code = ? AND label IS NOT NULL
+            ORDER BY reviewed_at DESC LIMIT 1
+        """, (src_ip, dst_ip, src_mac, dst_mac, op_code))
+        row = cur.fetchone()
+    return None if row is None else int(row["label"])
+
+
+def submit_unknown_feedback(packet_id: int, decision: str, features: dict, label: int | None):
+    now = time.time()
+    packet = get_unknown_packet(packet_id)
+    if not packet or packet["reviewed_at"] is not None:
+        return False
+    with db_cursor() as cur:
+        cur.execute("UPDATE unknown_packets SET reviewed_at=?, analyst_decision=? WHERE id=?", (now, decision, packet_id))
+        if label is None:
+            return True
+        cur.execute("""
+            INSERT INTO active_learning_feedback
+            (unknown_packet_id, timestamp, src_ip, dst_ip, src_mac, dst_mac, op_code,
+             ip_mac_binding_delta, replies_last_60s, seconds_since_ip_first_seen,
+             is_gratuitous, unsolicited_reply_ratio, request_rate, distinct_mac_count,
+             distinct_target_ips, packet_freq, features_json, analyst_decision, label, reviewed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (packet_id, packet["timestamp"], packet["src_ip"], packet["dst_ip"], packet["src_mac"],
+              packet["dst_mac"], packet["op_code"], features.get("ip_mac_binding_delta", 0),
+              features.get("replies_last_60s", 0), features.get("seconds_since_ip_first_seen", 0),
+              features.get("is_gratuitous", 0), features.get("unsolicited_reply_ratio", 0),
+              features.get("requests_last_60s", 0), features.get("unique_macs_for_ip_seen", 0),
+              features.get("distinct_target_ips", 0), features.get("packet_freq", 0),
+              json.dumps(features), decision, label, now))
+    return True
+
+
+def pending_feedback_count():
+    with db_cursor() as cur:
+        cur.execute("""SELECT COUNT(*) FROM active_learning_feedback
+                      WHERE label IS NOT NULL AND analyst_decision != 'IGNORE' AND retrained_at IS NULL""")
+        return cur.fetchone()[0]
+
+
+def mark_feedback_retrained():
+    with db_cursor() as cur:
+        cur.execute("""UPDATE active_learning_feedback SET retrained_at=?
+                      WHERE label IS NOT NULL AND analyst_decision != 'IGNORE' AND retrained_at IS NULL""", (time.time(),))
 
 
 def clear_training_data():
@@ -245,6 +365,16 @@ def clear_all_logs():
         _write_alerts_unlocked([])
     with db_cursor() as cur:
         cur.execute("DELETE FROM feedback_dataset")
+
+
+def clear_alert_logs():
+    with _alerts_lock:
+        _write_alerts_unlocked([])
+
+
+def clear_unknown_queue():
+    with db_cursor() as cur:
+        cur.execute("DELETE FROM unknown_packets WHERE reviewed_at IS NULL")
 
 
 def upsert_mac_ip(ip, mac, status, now):

@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Activity, Wifi } from "lucide-react";
+import { Activity, RefreshCw } from "lucide-react";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { api } from "../api";
 
 const MAX_POINTS = 60;
 
@@ -32,6 +33,8 @@ export default function NetworkOverview() {
   const [history, setHistory] = useState([]);
   const [latest, setLatest] = useState(null);
   const [arpTable, setArpTable] = useState([]);
+  const [refreshingArpTable, setRefreshingArpTable] = useState(false);
+  const [arpRefreshError, setArpRefreshError] = useState("");
 
   const onMessage = useCallback((data) => {
     setLatest(data);
@@ -48,6 +51,18 @@ export default function NetworkOverview() {
   }, []);
 
   const { connected } = useWebSocket("/ws/metrics", onMessage);
+
+  const refreshArpTable = async () => {
+    setRefreshingArpTable(true);
+    setArpRefreshError("");
+    try {
+      setArpTable(await api.arpTable());
+    } catch (err) {
+      setArpRefreshError(err.message || "Unable to refresh ARP table");
+    } finally {
+      setRefreshingArpTable(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -80,7 +95,19 @@ export default function NetworkOverview() {
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-        <h3 className="text-sm font-medium text-slate-300 mb-3">Live ARP / MAC State Table</h3>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-sm font-medium text-slate-300">Live ARP / MAC State Table</h3>
+          <button
+            type="button"
+            onClick={refreshArpTable}
+            disabled={refreshingArpTable}
+            className="flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={refreshingArpTable ? "animate-spin" : ""} />
+            {refreshingArpTable ? "Refreshing..." : "Refresh Table"}
+          </button>
+        </div>
+        {arpRefreshError && <p className="mb-3 text-xs text-red-400">{arpRefreshError}</p>}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

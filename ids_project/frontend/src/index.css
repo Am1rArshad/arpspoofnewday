@@ -16,7 +16,7 @@
   --bg-page: #f8fafc;
   --bg-card: #ffffff;
   --bg-subcard: #f1f5f9;
-  --bg-input: #ffffff;
+  --bg-input: #f8fafc;
   --border-card: #e2e8f0;
   --border-input: #cbd5e1;
   --text-primary: #0f172a;
@@ -116,10 +116,17 @@ body.light-mode {
 }
 .light-mode thead { background-color: var(--bg-subcard); }
 .light-mode thead tr { color: #334155; }
-.light-mode .account-nav-tab-active { color: #0f172a; }
-.light-mode .account-nav-tab-inactive { color: #64748b; }
-.light-mode .account-nav-tab-inactive:hover { color: #475569; }
+.theme-tab-active { color: #ef4444; }
+.theme-tab-inactive { color: #94a3b8; }
+.theme-tab-inactive:hover { color: #cbd5e1; }
+.light-mode .theme-tab-active,
+.light-mode .account-nav-tab-active { color: #ef4444; }
+.light-mode .theme-tab-inactive,
+.light-mode .account-nav-tab-inactive { color: #334155; }
+.light-mode .theme-tab-inactive:hover,
+.light-mode .account-nav-tab-inactive:hover { color: #1e293b; }
 .light-mode .hover\:bg-slate-800:hover { background-color: #e2e8f0; }
+.light-mode .hover\:bg-slate-800\/40:hover { background-color: #f1f5f9; }
 .light-mode .hover\:text-white:hover { color: #0f172a; }
 
 ::-webkit-scrollbar {

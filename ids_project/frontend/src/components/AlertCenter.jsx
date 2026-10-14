@@ -123,7 +123,7 @@ export default function AlertCenter() {
       <header>
         <h2 className="text-xl font-semibold">Alert Center &amp; Log Management</h2>
         <div className="mt-5 flex gap-6 overflow-x-auto border-b border-slate-800">
-          {tabs.map(([id, label, badge]) => <button key={id} onClick={() => { setActiveTab(id); setConfirmClear(false); }} className={`relative whitespace-nowrap px-1 pb-3 text-sm ${activeTab === id ? "text-white" : "text-slate-500 hover:text-slate-300"}`}>
+          {tabs.map(([id, label, badge]) => <button key={id} onClick={() => { setActiveTab(id); setConfirmClear(false); }} className={`theme-tab relative whitespace-nowrap px-1 pb-3 text-sm ${activeTab === id ? "theme-tab-active" : "theme-tab-inactive"}`}>
             {label}{badge && <span className="ml-2 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-300">{unknownPackets.length}</span>}
             {activeTab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-red-500" />}
           </button>)}

@@ -6,6 +6,8 @@ export default function AccountConfig({ user, onLogout }) {
   const [email, setEmail] = useState(user?.email || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [accountMsg, setAccountMsg] = useState("");
 
   const [config, setConfig] = useState(null);
@@ -24,6 +26,11 @@ export default function AccountConfig({ user, onLogout }) {
   const saveAccount = async (e) => {
     e.preventDefault();
     setAccountMsg("");
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+    setPasswordError("");
     try {
       await api.updateAccount({
         email: email !== user?.email ? email : undefined,
@@ -33,6 +40,7 @@ export default function AccountConfig({ user, onLogout }) {
       setAccountMsg("Account updated successfully.");
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
       setAccountMsg(err.message || "Update failed");
     }
@@ -118,8 +126,8 @@ export default function AccountConfig({ user, onLogout }) {
             onClick={() => setActiveSection(section)}
             className={`whitespace-nowrap px-3 py-2 text-sm border-b-2 transition ${
               activeSection === section
-                ? "account-nav-tab-active border-red-500 text-white"
-                : "account-nav-tab-inactive border-transparent text-slate-500 hover:text-slate-300"
+                ? "theme-tab-active account-nav-tab-active border-red-500"
+                : "theme-tab-inactive account-nav-tab-inactive border-transparent"
             }`}
           >
             {label}
@@ -138,7 +146,7 @@ export default function AccountConfig({ user, onLogout }) {
           <input value={email} onChange={(e) => setEmail(e.target.value)}
             className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="text-xs text-slate-500">Current Password</label>
             <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
@@ -146,8 +154,14 @@ export default function AccountConfig({ user, onLogout }) {
           </div>
           <div>
             <label className="text-xs text-slate-500">New Password</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+            <input type="password" value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setPasswordError(""); }}
               className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Confirm Password</label>
+            <input type="password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(""); }}
+              className={`w-full mt-1 bg-slate-800 border rounded-lg px-3 py-2 ${passwordError ? "border-red-500" : "border-slate-700"}`} />
+            {passwordError && <p className="mt-1 text-xs text-red-500">{passwordError}</p>}
           </div>
         </div>
         {accountMsg && <p className="text-xs text-slate-400">{accountMsg}</p>}

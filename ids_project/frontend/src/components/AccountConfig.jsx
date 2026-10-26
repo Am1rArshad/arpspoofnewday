@@ -126,7 +126,7 @@ export default function AccountConfig({ user, onLogout }) {
             onClick={() => setActiveSection(section)}
             className={`whitespace-nowrap px-3 py-2 text-sm border-b-2 transition ${
               activeSection === section
-                ? "theme-tab-active account-nav-tab-active border-red-500"
+                ? "theme-tab-active account-nav-tab-active border-cyan-400"
                 : "theme-tab-inactive account-nav-tab-inactive border-transparent"
             }`}
           >
@@ -165,7 +165,7 @@ export default function AccountConfig({ user, onLogout }) {
           </div>
         </div>
         {accountMsg && <p className="text-xs text-slate-400">{accountMsg}</p>}
-        <button className="flex items-center gap-2 bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg text-sm font-medium">
+        <button className="flex items-center gap-2 bg-cyan-400 hover:bg-cyan-300 text-slate-950 px-4 py-2 rounded-lg text-sm font-semibold">
           <Save size={14} /> Save Account
         </button>
       </form>}
@@ -360,7 +360,7 @@ export default function AccountConfig({ user, onLogout }) {
             </>}
 
             {configMsg && <p className="text-xs text-slate-400">{configMsg}</p>}
-            <button onClick={saveConfig} className="flex items-center gap-2 bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg text-sm font-medium">
+            <button onClick={saveConfig} className="flex items-center gap-2 bg-cyan-400 hover:bg-cyan-300 text-slate-950 px-4 py-2 rounded-lg text-sm font-semibold">
               <Save size={14} /> Save Configuration
             </button>
         </div>

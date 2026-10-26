@@ -22,7 +22,10 @@ export default function Login({ onSuccess }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+    <div className="login-shell min-h-screen flex items-center justify-center px-4">
+      <a href="/" className="login-home-link" aria-label="Return to landing page">
+        <span aria-hidden="true">&#8592;</span> Back to Home
+      </a>
       <form onSubmit={submit} className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8">
         <div className="flex flex-col items-center mb-6">
           <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-16 w-16 object-contain mb-4" />
@@ -38,7 +41,7 @@ export default function Login({ onSuccess }) {
 
         <label className="text-xs uppercase tracking-wide text-slate-400">Username</label>
         <input
-          className="w-full mt-1 mb-4 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="w-full mt-1 mb-4 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
@@ -46,14 +49,14 @@ export default function Login({ onSuccess }) {
         <label className="text-xs uppercase tracking-wide text-slate-400">Password</label>
         <input
           type="password"
-          className="w-full mt-1 mb-6 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="w-full mt-1 mb-6 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
         <button
           disabled={loading}
-          className="w-full bg-red-600 hover:bg-red-500 transition rounded-lg py-2 font-medium disabled:opacity-50"
+          className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 transition rounded-lg py-2 font-semibold disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>

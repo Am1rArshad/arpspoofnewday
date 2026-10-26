@@ -290,6 +290,7 @@ async def metrics_broadcast_loop():
                 "disk_write_bytes": disk_io.write_bytes if disk_io else 0,
                 "packets_per_sec": traffic.get("packets_per_sec", 0),
                 "bandwidth_bytes_per_sec": traffic.get("bandwidth_bytes_per_sec", 0),
+                "bandwidth_kbps": traffic.get("bandwidth_kbps", 0),
                 "sniffer_running": traffic.get("running", False),
                 "arp_mac_table": database.get_mac_ip_table()[:50],
             }

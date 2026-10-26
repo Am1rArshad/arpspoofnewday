@@ -106,7 +106,7 @@ export default function ModelControl() {
         </div>
         {message && <p className="text-sm text-slate-300">{message}</p>}
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={handleRetrain} disabled={retraining || deleting || status?.is_retraining} className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium">
+          <button onClick={handleRetrain} disabled={retraining || deleting || status?.is_retraining} className="flex items-center gap-2 bg-cyan-400 hover:bg-cyan-300 text-slate-950 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-semibold">
             {retraining || status?.is_retraining ? <Loader2 size={16} className="animate-spin" /> : <BrainCircuit size={16} />}
             {retraining || status?.is_retraining ? "Retraining..." : "Retrain Model with Feedback"}
           </button>

@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (matchedLink) {
         if (scrollY > sectionTop && scrollY <= sectionTop + sectionHeight) {
-          matchedLink.style.color = 'var(--rose)';
+          matchedLink.style.color = 'var(--accent)';
         } else {
           matchedLink.style.color = '';
         }

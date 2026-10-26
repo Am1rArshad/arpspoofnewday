@@ -10,6 +10,7 @@
   --border-card: #26303d;
   --border-input: #344152;
   --text-primary: #f1f5f9;
+  --accent-primary: #00e5ff;
 }
 
 .light-mode {
@@ -31,6 +32,39 @@ body {
 body.light-mode {
   background-color: var(--bg-page);
   color: var(--text-primary);
+}
+
+.login-shell {
+  position: relative;
+  isolation: isolate;
+  background-image: linear-gradient(rgba(8, 12, 20, 0.75), rgba(8, 12, 20, 0.75)), url("/octopusbackground.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.login-home-link {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 1;
+  color: #cbd5e1;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.login-home-link:hover {
+  color: var(--accent-primary);
+  transform: translateX(-2px);
+}
+
+.login-shell form {
+  position: relative;
+  z-index: 1;
+  background-color: rgba(13, 17, 23, 0.94);
+  border-color: rgba(148, 163, 184, 0.24);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
 
 .startup-overlay {
@@ -115,11 +149,11 @@ body.light-mode {
 }
 .light-mode thead { background-color: var(--bg-subcard); }
 .light-mode thead tr { color: #334155; }
-.theme-tab-active { color: #ef4444; }
+.theme-tab-active { color: var(--accent-primary); }
 .theme-tab-inactive { color: #94a3b8; }
 .theme-tab-inactive:hover { color: #cbd5e1; }
 .light-mode .theme-tab-active,
-.light-mode .account-nav-tab-active { color: #ef4444; }
+.light-mode .account-nav-tab-active { color: #0891b2; }
 .light-mode .theme-tab-inactive,
 .light-mode .account-nav-tab-inactive { color: #334155; }
 .light-mode .theme-tab-inactive:hover,

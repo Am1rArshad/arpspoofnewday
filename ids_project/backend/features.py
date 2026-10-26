@@ -101,7 +101,11 @@ class ArpStateTracker:
                 self.byte_count_window.popleft()
             pps = len(self.packet_count_window)
             bps = sum(sz for _, sz in self.byte_count_window)
-        return {"packets_per_sec": pps, "bandwidth_bytes_per_sec": bps}
+        return {
+            "packets_per_sec": pps,
+            "bandwidth_bytes_per_sec": bps,
+            "bandwidth_kbps": round(bps / 1024.0, 3),
+        }
 
     def extract(self, pkt) -> dict:
         """Extract a feature dict + contextual metadata for a single ARP packet."""

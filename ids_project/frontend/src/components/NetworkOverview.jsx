@@ -37,13 +37,17 @@ export default function NetworkOverview() {
   const [arpRefreshError, setArpRefreshError] = useState("");
 
   const onMessage = useCallback((data) => {
-    setLatest(data);
+    const bandwidthBytesPerSec = Number(
+      data.bandwidth_bytes_per_sec ?? data.bytes_per_sec ?? (Number(data.bandwidth_kbps || 0) * 1024),
+    );
+    const bandwidthKbps = Number(data.bandwidth_kbps ?? bandwidthBytesPerSec / 1024);
+    setLatest({ ...data, bandwidth_bytes_per_sec: bandwidthBytesPerSec, bandwidth_kbps: bandwidthKbps });
     setArpTable(data.arp_mac_table || []);
     setHistory((prev) => {
       const point = {
         time: new Date(data.timestamp * 1000).toLocaleTimeString(),
-        pps: data.packets_per_sec,
-        bandwidth: Math.round(data.bandwidth_bytes_per_sec / 1024), // KB/s
+        pps: Number(data.packets_per_sec || 0),
+        bandwidth: bandwidthKbps,
       };
       const next = [...prev, point];
       return next.length > MAX_POINTS ? next.slice(next.length - MAX_POINTS) : next;
@@ -86,10 +90,11 @@ export default function NetworkOverview() {
           <LineChart data={history}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#64748b" }} interval="preserveStartEnd" />
-            <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
+            <YAxis yAxisId="packets" tick={{ fontSize: 10, fill: "#f59e0b" }} />
+            <YAxis yAxisId="bandwidth" orientation="right" tick={{ fontSize: 10, fill: "#60a5fa" }} />
             <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b" }} />
-            <Line type="monotone" dataKey="pps" name="Packets/sec" stroke="#f59e0b" dot={false} strokeWidth={2} />
-            <Line type="monotone" dataKey="bandwidth" name="Bandwidth (KB/s)" stroke="#60a5fa" dot={false} strokeWidth={2} />
+            <Line yAxisId="packets" type="monotone" dataKey="pps" name="Packets/sec" stroke="#f59e0b" dot={false} strokeWidth={2} />
+            <Line yAxisId="bandwidth" type="monotone" dataKey="bandwidth" name="Bandwidth (KB/s)" stroke="#60a5fa" dot={false} strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
       </div>

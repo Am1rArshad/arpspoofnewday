@@ -80,7 +80,7 @@ export default function App() {
         <div className="startup-popup">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center">
-              <Loader2 className="animate-spin text-red-500" size={21} />
+              <Loader2 className="animate-spin text-cyan-400" size={21} />
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-100">Starting ARP Security Box</p>
@@ -114,7 +114,7 @@ export default function App() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${
-                tab === t.id ? "bg-red-600 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                tab === t.id ? "bg-cyan-400 text-slate-950" : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
               <t.icon size={16} />
@@ -134,7 +134,7 @@ export default function App() {
           onClick={() => setDarkMode((isDark) => !isDark)}
           aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
           title={`Switch to ${darkMode ? "light" : "dark"} mode`}
-          className="absolute top-5 right-6 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-red-500 hover:text-white light-mode:border-slate-300 light-mode:bg-white light-mode:text-slate-600 light-mode:hover:text-slate-900"
+          className="absolute top-5 right-6 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-cyan-400 hover:text-white light-mode:border-slate-300 light-mode:bg-white light-mode:text-slate-600 light-mode:hover:text-slate-900"
         >
           {darkMode ? <Sun size={17} /> : <Moon size={17} />}
         </button>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARP Security Box | AI-Enhanced Threat Detection</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  
+  <header class="nav-bar">
+    <div class="nav-wrap">
+      <a href="#" class="brand-wrap">
+        <div class="brand-octopus">
+            <img src="image/octopus.png" alt="Logo" style="width: 24px; height: 24px; object-fit: contain;" />
+        </div>
+
+        <div class="brand-text">
+          <h1>ARP <span>Security Box</span></h1>
+          <span class="brand-sub">CBS/36/24B • GMI</span>
+        </div>
+      </a>
+
+      <nav class="nav-menu">
+        <a href="#the-problem">The Problem</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#features">Detection Rules</a>
+        <a href="#team">Our Team</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="/" class="btn-go-to-app">
+          <span>Go to App</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-container">
+
+    
+    <section class="hero-wrapper">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          <span>REAL-TIME INTRUSION DETECTION ENGINE</span>
+        </div>
+
+        <h2 class="hero-title">
+          Intelligent Machine Learning &amp; <span>ARP Spoof Defense</span>
+        </h2>
+
+        <p class="hero-lead">
+          Expose stealth LAN poisoning and Man-in-the-Middle exploits in real time. Combines deterministic priority rules with continuous XGBoost pattern modeling to eliminate noisy false positives.
+        </p>
+
+        <div class="hero-actions">
+          <a href="/" class="btn-primary">Launch Dashboard</a>
+          <a href="#architecture" class="btn-ghost">View Pipeline</a>
+        </div>
+      </div>
+
+      
+      <div class="network-spec-card">
+        <div class="spec-header">
+          <span class="spec-title"><span class="status-indicator"></span>SPAN MIRROR TOPOLOGY</span>
+          <span class="spec-env">Ubuntu 22.04 LTS</span>
+        </div>
+
+        <div class="topology-flow">
+          <div class="topology-node">
+            <div>
+              <span class="node-label">Cisco Managed Switch (SPAN Port)</span>
+              <span class="node-sub">Passive Layer-2 Packet Ingestion</span>
+            </div>
+            <span class="node-chip">0ms Overhead</span>
+          </div>
+
+          <div class="topology-node highlight">
+            <div>
+              <span class="node-label">ARP Security Box (Daemon Engine)</span>
+              <span class="node-sub">10 Behavioral Vectors + XGBoost Scorer</span>
+            </div>
+            <span class="node-chip rose">&lt;10ms Eval</span>
+          </div>
+
+          <div class="topology-node">
+            <div>
+              <span class="node-label">Analyst Web Dashboard</span>
+              <span class="node-sub">Active Learning Feedback Loop</span>
+            </div>
+            <span class="node-chip green">Retrainable</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    
+    <section id="the-problem" class="section-block">
+      <div class="section-head">
+        <span class="section-meta">The Detection Paradox</span>
+        <h3 class="section-title">Why Traditional Rules Fail Against Modern LAN Exploits</h3>
+        <p class="section-desc">Static IP-MAC lookup tables can be bypassed with address rotation, while standard machine learning engines struggle with zero-day false positives without human verification.</p>
+      </div>
+
+      <div class="paradox-grid">
+        <div class="card-frame">
+          <span class="card-tag red">Legacy Vulnerability</span>
+          <h4 class="card-title">Traditional Static Firewalls</h4>
+          <ul class="point-list">
+            <li>
+              <span class="sym neg">✕</span>
+              <div><strong>Address Rotation Vulnerability:</strong> Attackers rotate source IPs dynamically to bypass fixed static binding tables.</div>
+            </li>
+            <li>
+              <span class="sym neg">✕</span>
+              <div><strong>Zero Temporal Context:</strong> Unable to calculate burst ratios, churn deltas, or unsolicited reply spikes over 30s/60s sliding windows.</div>
+            </li>
+            <li>
+              <span class="sym neg">✕</span>
+              <div><strong>Alert Fatigue:</strong> Floods security administrators with unranked logs lacking probability confidence scores.</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card-frame active-solution">
+          <span class="card-tag purple">Intelligent Hybrid Engine</span>
+          <h4 class="card-title">ARP Security Box Defense</h4>
+          <ul class="point-list">
+            <li>
+              <span class="sym pos">✓</span>
+              <div><strong>Feature-Based Generalization:</strong> Evaluates 10 non-linear metrics to identify anomalies regardless of IP/MAC spoofing.</div>
+            </li>
+            <li>
+              <span class="sym pos">✓</span>
+              <div><strong>Active Learning Pipeline:</strong> Human administrator decisions on borderline edge packets retrain the local model dynamically.</div>
+            </li>
+            <li>
+              <span class="sym pos">✓</span>
+              <div><strong>Self-Healing Table Flushes:</strong> Purges poisoned cache bindings and triggers rapid subnet re-scans instantly.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    
+    <section id="architecture" class="section-block">
+      <div class="section-head">
+        <span class="section-meta">Execution Pipeline</span>
+        <h3 class="section-title">End-to-End Threat Processing Workflow</h3>
+        <p class="section-desc">From passive SPAN ingestion to real-time classification and automated containment.</p>
+      </div>
+
+      <div class="pipeline-track">
+        <div class="track-step">
+          <div class="step-badge">01</div>
+          <div class="step-card">
+            <h4 class="step-heading">Packet Ingestion &amp; Feature Extraction</h4>
+            <p class="step-body">The sniffer daemon passively reads raw Layer-2 Ethernet frames from the switch mirror port and computes 10-dimensional metric vectors across rolling time frames.</p>
+            <div class="code-preview"><code>requests_60s &gt; 20 &amp;&amp; ip_mac_churn_delta == 1</code></div>
+          </div>
+        </div>
+
+        <div class="track-step">
+          <div class="step-badge rose-glow">02</div>
+          <div class="step-card">
+            <h4 class="step-heading">Hybrid Priority Scoring</h4>
+            <p class="step-body">Immediate rule checks execute for high-severity known signatures (gratuitous bursts &amp; scanning). Ambiguous traffic triggers the XGBoost inference engine for probabilistic anomaly scoring.</p>
+            <div class="code-preview"><code class="rose-txt">Score &ge; 0.70 &rarr; Immediate Alert &bull; Score 0.40 - 0.70 &rarr; Review Queue</code></div>
+          </div>
+        </div>
+
+        <div class="track-step">
+          <div class="step-badge">03</div>
+          <div class="step-card">
+            <h4 class="step-heading">Analyst Verification &amp; Retraining</h4>
+            <p class="step-body">Borderline detections route to the Analyst Review Queue. Validated labels automatically feed back to optimize XGBoost decision boundaries on-premises.</p>
+            <div class="code-preview"><code>True Positives &rarr; Dataset Augment &bull; False Positives &rarr; Suppress</code></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    
+    <section id="features" class="section-block">
+      <div class="section-head">
+        <span class="section-meta">Capabilities Matrix</span>
+        <h3 class="section-title">Engineered for High-Assurance SOC Operations</h3>
+        <p class="section-desc">Operational primitives built for real-time containment and low false-positive rates.</p>
+      </div>
+
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div>
+            <span class="cap-tag">Rule Engine</span>
+            <h4 class="cap-title">Dual-Engine Classification</h4>
+            <p class="cap-desc">Cascades high-speed priority rules into XGBoost machine learning to balance microsecond response times with zero-day pattern modeling.</p>
+          </div>
+          <div class="cap-foot">
+            <span>Detection Mode</span>
+            <span class="cap-val">Deterministic + ML</span>
+          </div>
+        </div>
+
+        <div class="cap-card">
+          <div>
+            <span class="cap-tag">Adaptive Defense</span>
+            <h4 class="cap-title">Active Learning Loop</h4>
+            <p class="cap-desc">Converts administrator triage interactions into fresh ground-truth training records directly within the dashboard UI.</p>
+          </div>
+          <div class="cap-foot">
+            <span>Architecture</span>
+            <span class="cap-val violet">Human-In-The-Loop</span>
+          </div>
+        </div>
+
+        <div class="cap-card">
+          <div>
+            <span class="cap-tag">Temporal Analysis</span>
+            <h4 class="cap-title">Gratuitous Reply Tracking</h4>
+            <p class="cap-desc">Continuous rate computation tracking unsolicited ARP replies, MAC churning frequency, and opcode alterations over 30s/60s sliding windows.</p>
+          </div>
+          <div class="cap-foot">
+            <span>Observation Window</span>
+            <span class="cap-val">30s / 60s Sliding</span>
+          </div>
+        </div>
+
+        <div class="cap-card">
+          <div>
+            <span class="cap-tag">Network Health</span>
+            <h4 class="cap-title">Self-Healing Cache Flush</h4>
+            <p class="cap-desc">Purge poisoned ARP cache mappings, reset binding churn counters, and trigger immediate broadcast subnet discovery scans on demand.</p>
+          </div>
+          <div class="cap-foot">
+            <span>Remediation</span>
+            <span class="cap-val violet">State Reset Tool</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="team" class="section-block team-section">
+      <div class="section-head">
+        <span class="section-meta">German-Malaysian Institute</span>
+        <h3 class="section-title">Supervisor &amp; Team</h3>
+        <p class="section-desc">Diploma in Cyber Security • Trade CBS 6 • Intake July 2024</p>
+      </div>
+
+      <div class="supervisor-wrap">
+        <div class="supervisor-card">
+          <div class="avatar-disc supervisor-border">
+            <span class="avatar-initials violet-txt">MA</span>
+            <img src="" onload="this.style.opacity='1'" onerror="this.remove()" />
+          </div>
+          <span class="badge-role">Project Supervisor</span>
+          <h4 class="team-name">Mahidir Bin Ayub</h4>
+          <span class="team-inst">German-Malaysian Institute</span>
+        </div>
+      </div>
+
+      <div class="team-grid">
+        <div class="member-card">
+          <div class="avatar-disc">
+            <span class="avatar-initials sky-txt">AA</span>
+            <img src="" onload="this.style.opacity='1'" onerror="this.remove()" />
+          </div>
+          <h5 class="team-name">Mohamad Amir Arshad</h5>
+          <span class="member-id">CBS24070556</span>
+        </div>
+
+        <div class="member-card">
+          <div class="avatar-disc">
+            <span class="avatar-initials green-txt">NI</span>
+            <img src="" onload="this.style.opacity='1'" onerror="this.remove()" />
+          </div>
+          <h5 class="team-name">Nik Muhammad Irfan</h5>
+          <span class="member-id">CBS24070422</span>
+        </div>
+
+        <div class="member-card">
+          <div class="avatar-disc">
+            <span class="avatar-initials violet-txt">MM</span>
+            <img src=""  onload="this.style.opacity='1'" onerror="this.remove()" />
+          </div>
+          <h5 class="team-name">Muhammad Multazam</h5>
+          <span class="member-id">CBS24070087</span>
+        </div>
+
+        <div class="member-card">
+          <div class="avatar-disc">
+            <span class="avatar-initials rose-txt">LN</span>
+            <img src="" alt="Laiqa Najma" onload="this.style.opacity='1'" onerror="this.remove()" />
+          </div>
+          <h5 class="team-name">Laiqa Najma</h5>
+          <span class="member-id">CBS24070324</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-wrap">
+      <p class="foot-main">CBS/36/24B • German-Malaysian Institute • Final Year Project</p>
+      <p class="foot-sub">Automated ARP Spoofing Detection System Using Intelligent ML Analysis and Real-Time Alerts</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

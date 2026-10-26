@@ -24,6 +24,7 @@ export default function AlertCenter() {
   const [severityFilter, setSeverityFilter] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const [rangeError, setRangeError] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const validateRange = (from, to) => {
     if (!from || !to) { setRangeError(""); return true; }
@@ -93,10 +94,20 @@ export default function AlertCenter() {
     return payload;
   };
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
+    setExportError("");
     if (activeTab === "flagged") {
       const params = { ...(dateFrom ? { start: new Date(dateFrom).getTime() / 1000 } : {}), ...(dateTo ? { end: new Date(dateTo).getTime() / 1000 } : {}), ...(severityFilter ? { severity: severityFilter } : {}), type: "flagged" };
-      window.open(api.exportUrl(format, params), "_blank");
+      try {
+        const blob = await api.exportAlerts(format, params);
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `alerts_export.${format}`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) {
+        setExportError(error.message);
+      }
       return;
     }
     const rows = exportRows(currentRows);
@@ -141,6 +152,7 @@ export default function AlertCenter() {
             {!confirmClear ? <button onClick={() => setConfirmClear(true)} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-sm text-red-400 hover:bg-red-600/30"><Trash2 size={14} /> Clear All Logs</button> : <div className="flex items-center gap-2 rounded-lg border border-red-500/30 px-2 text-sm"><span>{clearConfirmation}</span><button onClick={handleClearAll} className="text-red-400">Yes</button><button onClick={() => setConfirmClear(false)} className="text-slate-400">No</button></div>}
           </div>
         </div>
+        {exportError && <p className="mt-2 text-sm text-red-400" role="alert">{exportError}</p>}
         {rangeError && <p className="mt-2 text-sm text-red-400" role="alert">{rangeError}</p>}
       </section>
 

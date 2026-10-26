@@ -31,6 +31,23 @@ async function request(path, options = {}) {
   return res;
 }
 
+async function requestBlob(path, options = {}) {
+  const headers = options.headers || {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401) {
+    setToken(null);
+    window.location.reload();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+  return res.blob();
+}
+
 export const api = {
   login: async (username, password) => {
     const body = new URLSearchParams();
@@ -73,8 +90,11 @@ export const api = {
   clearLogs: (type = "flagged") => request(`/alerts?type=${encodeURIComponent(type)}`, { method: "DELETE" }),
   exportUrl: (fmt, params = {}) => {
     const qs = new URLSearchParams(params).toString();
-    const token = getToken();
     return `${API_BASE}/alerts/export/${fmt}${qs ? `?${qs}` : ""}`;
+  },
+  exportAlerts: (fmt, params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return requestBlob(`/alerts/export/${fmt}${qs ? `?${qs}` : ""}`);
   },
 
   retrainModel: () => request("/model/retrain", { method: "POST" }),

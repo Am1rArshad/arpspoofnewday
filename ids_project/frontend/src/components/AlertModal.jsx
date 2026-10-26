@@ -73,7 +73,7 @@ export default function AlertModal({ alert, onClose, onFeedback }) {
                   <span className="w-40 truncate text-slate-400">{s.feature}</span>
                   <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
                     <div
-                      className={`h-full ${s.impact >= 0 ? "bg-red-500" : "bg-blue-500"}`}
+                      className={`h-full ${s.impact >= 0 ? "bg-red-500" : "bg-amber-500"}`}
                       style={{ width: `${Math.min(100, Math.abs(s.impact) * 100)}%` }}
                     />
                   </div>

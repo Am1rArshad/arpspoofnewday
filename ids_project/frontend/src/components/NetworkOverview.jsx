@@ -15,7 +15,7 @@ function Gauge({ label, value, color }) {
       </div>
       <div className={`mt-3 h-2 rounded-full overflow-hidden ${color}`}>
         <div
-          className="h-full bg-current transition-all"
+          className="h-full bg-current"
           style={{ width: `${Math.min(100, parseFloat(value) || 0)}%` }}
         />
       </div>

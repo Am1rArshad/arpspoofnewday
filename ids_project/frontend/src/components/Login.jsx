@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Shield } from "lucide-react";
 import { api } from "../api";
 
 export default function Login({ onSuccess }) {
@@ -23,12 +22,10 @@ export default function Login({ onSuccess }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
       <form onSubmit={submit} className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center mb-3">
-            <Shield className="text-red-500" size={28} />
-          </div>
+          <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-16 w-16 object-contain mb-4" />
           <h1 className="text-xl font-semibold">ARP Security Box</h1>
           <p className="text-slate-400 text-sm">Real-time Threat Detection Dashboard</p>
         </div>

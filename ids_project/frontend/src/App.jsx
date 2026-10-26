@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Shield, Activity, Bell, BrainCircuit, Settings, Sun, Moon, Loader2 } from "lucide-react";
+import { Activity, Bell, BrainCircuit, Settings, Sun, Moon, Loader2 } from "lucide-react";
 import { api, getToken } from "./api";
 import Login from "./components/Login";
 import NetworkOverview from "./components/NetworkOverview";
@@ -15,6 +15,8 @@ const TABS = [
 ];
 
 export default function App() {
+  const isLandingRoute = window.location.pathname === "/";
+  const isLoginRoute = window.location.pathname === "/login";
   const [authed, setAuthed] = useState(false);
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("overview");
@@ -42,32 +44,43 @@ export default function App() {
   }, [checking]);
 
   useEffect(() => {
+    if (isLandingRoute) {
+      window.location.replace("/landing.html");
+      return undefined;
+    }
+    if (isLoginRoute) {
+      setChecking(false);
+      return undefined;
+    }
     if (getToken()) {
       api.me().then((u) => { setUser(u); setAuthed(true); }).catch(() => setAuthed(false)).finally(() => setChecking(false));
     } else {
       setChecking(false);
     }
-  }, []);
+  }, [isLandingRoute, isLoginRoute]);
 
   const handleLoginSuccess = async () => {
     const u = await api.me();
     setUser(u);
     setAuthed(true);
+    window.history.replaceState({}, "", "/dashboard");
   };
 
   const handleLogout = () => {
     api.logout();
     setAuthed(false);
     setUser(null);
+    window.history.replaceState({}, "", "/login");
   };
 
+  if (isLandingRoute) return null;
   if (checking) {
     return (
       <div className="startup-overlay" role="status" aria-live="polite">
         <div className="startup-popup">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10">
-              <Loader2 className="animate-spin text-red-500" size={19} />
+            <div className="flex h-10 w-10 items-center justify-center">
+              <Loader2 className="animate-spin text-red-500" size={21} />
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-100">Starting ARP Security Box</p>
@@ -82,15 +95,13 @@ export default function App() {
       </div>
     );
   }
-  if (!authed) return <Login onSuccess={handleLoginSuccess} />;
+  if (isLoginRoute || !authed) return <Login onSuccess={handleLoginSuccess} />;
 
   return (
     <div className={`min-h-screen flex ${darkMode ? "" : "light-mode"}`}>
       <aside className="w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col">
-        <div className="flex items-center gap-2 mb-8 px-2">
-          <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
-            <Shield className="text-red-500" size={20} />
-          </div>
+        <div className="flex items-center gap-3 mb-8 px-2">
+          <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-12 w-12 object-contain" />
           <div>
             <p className="font-semibold text-sm leading-tight">ARP Security Box</p>
             <p className="text-xs text-slate-500">LAN MITM Detection</p>

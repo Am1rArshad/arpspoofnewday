@@ -28,7 +28,7 @@ export default function Login({ onSuccess }) {
       </a>
       <form onSubmit={submit} className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8">
         <div className="flex flex-col items-center mb-6">
-          <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-16 w-16 object-contain mb-4" />
+          <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-[4.5rem] w-[4.5rem] object-contain mb-4" />
           <h1 className="text-xl font-semibold">ARP Security Box</h1>
           <p className="text-slate-400 text-sm">Real-time Threat Detection Dashboard</p>
         </div>

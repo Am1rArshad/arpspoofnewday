@@ -101,7 +101,7 @@ export default function App() {
     <div className={`min-h-screen flex ${darkMode ? "" : "light-mode"}`}>
       <aside className="w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col">
         <div className="flex items-center gap-3 mb-8 px-2">
-          <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-12 w-12 object-contain" />
+          <img src="/image/octopus.png" alt="ARP Security Box logo" className="h-14 w-14 object-contain" />
           <div>
             <p className="font-semibold text-sm leading-tight">ARP Security Box</p>
             <p className="text-xs text-slate-500">LAN MITM Detection</p>
